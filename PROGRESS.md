@@ -2,9 +2,9 @@
 
 ## Phase 1: Foundation
 - [x] Install deps: zustand, expo-sqlite, nativewind, @gorhom/bottom-sheet, expo-haptics, react-native-gifted-charts, expo-crypto (+ peers: reanimated, gesture-handler, safe-area-context, svg, tailwindcss@3.4.17)
-- [ ] Configure NativeWind (tailwind.config.js, babel.config.js, global.css)
-- [ ] Set up folder structure: /src/{db,api,store,screens,components,types,utils}
-- [ ] Define TypeScript types for Asset, Liability, Snapshot, SnapshotItem in /src/types
+- [x] Configure NativeWind (tailwind.config.js, babel.config.js, metro.config.js, global.css, nativewind-env.d.ts)
+- [x] Set up folder structure: /src/{db,api,store,screens,components,types,utils}
+- [x] Define TypeScript types for Asset, Liability, Snapshot, SnapshotItem in /src/types
 
 ## Phase 2: Database Layer
 - [ ] Implement schema migrations in /src/db/schema.ts (3 tables per PRD section 3)
