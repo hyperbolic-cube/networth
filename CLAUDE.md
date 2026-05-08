@@ -3,7 +3,7 @@
 ## Read First
 - Full spec: see PRD.md
 - Current progress: see PROGRESS.md (update after every completed task)
-- Architecture decisions: see DECISIONS.md
+- Architecture decisions: see DECISIONS.md (append when deviating from PRD or pinning versions)
 
 ## Hard Constraints (NEVER violate)
 - Local-first only. No backend, no analytics SDKs, no Firebase, no Sentry, no auth.
