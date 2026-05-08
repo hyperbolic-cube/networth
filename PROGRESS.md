@@ -7,10 +7,10 @@
 - [x] Define TypeScript types for Asset, Liability, Snapshot, SnapshotItem in /src/types
 
 ## Phase 2: Database Layer
-- [ ] Implement schema migrations in /src/db/schema.ts (3 tables per PRD section 3)
-- [ ] CRUD functions for assets_liabilities
-- [ ] CRUD functions for snapshots + snapshot_items (transactional insert)
-- [ ] Write a seed/reset utility for dev
+- [x] Implement schema migrations in /src/db/schema.ts (3 tables per PRD section 3)
+- [x] CRUD functions for assets_liabilities (src/db/assets.ts)
+- [x] CRUD functions for snapshots + snapshot_items — transactional via withTransactionAsync (src/db/snapshots.ts)
+- [x] Seed/reset utility for dev (src/db/dev.ts)
 
 ## Phase 3: API Layer
 - [ ] /src/api/fx.ts — Frankfurter integration with 24h cache

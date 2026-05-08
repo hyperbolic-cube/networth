@@ -1,0 +1,86 @@
+import { randomUUID } from "expo-crypto";
+import { db } from "./client";
+import type { Snapshot, SnapshotItem } from "../types";
+
+type LockItemInput = {
+  asset_liability_id: string;
+  value_in_original_currency: number;
+  exchange_rate_to_usd: number;
+  calculated_value_usd: number;
+};
+
+// ── Write ──────────────────────────────────────────────────────────────────
+
+/**
+ * Atomically writes a snapshot + all its items.
+ * Liabilities should carry a negative calculated_value_usd so the sum equals net worth.
+ */
+export async function lockSnapshot(items: LockItemInput[]): Promise<Snapshot> {
+  const totalNetWorth = items.reduce((sum, item) => sum + item.calculated_value_usd, 0);
+
+  const snapshot: Snapshot = {
+    id: randomUUID(),
+    total_net_worth_usd: totalNetWorth,
+    locked_at: new Date().toISOString(),
+  };
+
+  const rows: SnapshotItem[] = items.map((item) => ({
+    id: randomUUID(),
+    snapshot_id: snapshot.id,
+    ...item,
+  }));
+
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      `INSERT INTO snapshots (id, total_net_worth_usd, locked_at) VALUES (?, ?, ?)`,
+      [snapshot.id, snapshot.total_net_worth_usd, snapshot.locked_at]
+    );
+
+    for (const row of rows) {
+      await db.runAsync(
+        `INSERT INTO snapshot_items
+           (id, snapshot_id, asset_liability_id,
+            value_in_original_currency, exchange_rate_to_usd, calculated_value_usd)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          row.id,
+          row.snapshot_id,
+          row.asset_liability_id,
+          row.value_in_original_currency,
+          row.exchange_rate_to_usd,
+          row.calculated_value_usd,
+        ]
+      );
+    }
+  });
+
+  return snapshot;
+}
+
+// ── Read ───────────────────────────────────────────────────────────────────
+
+export async function getAllSnapshots(): Promise<Snapshot[]> {
+  return db.getAllAsync<Snapshot>(
+    `SELECT * FROM snapshots ORDER BY locked_at ASC`
+  );
+}
+
+export async function getLatestSnapshot(): Promise<Snapshot | null> {
+  return db.getFirstAsync<Snapshot>(
+    `SELECT * FROM snapshots ORDER BY locked_at DESC LIMIT 1`
+  );
+}
+
+export async function getSnapshotItems(snapshotId: string): Promise<SnapshotItem[]> {
+  return db.getAllAsync<SnapshotItem>(
+    `SELECT * FROM snapshot_items WHERE snapshot_id = ?`,
+    [snapshotId]
+  );
+}
+
+export async function getSnapshotCount(): Promise<number> {
+  const row = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) as count FROM snapshots`
+  );
+  return row?.count ?? 0;
+}
