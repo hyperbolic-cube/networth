@@ -6,8 +6,8 @@
 - Architecture decisions: see DECISIONS.md (append when deviating from PRD or pinning versions)
 
 ## Hard Constraints (NEVER violate)
-- Local-first only. No backend, no analytics SDKs, no Firebase, no Sentry, no auth.
-- Only public anonymous APIs allowed: Frankfurter (FX), Yahoo Finance (tickers).
+- Local-first only. No backend (except our own stock price proxy), no analytics SDKs, no Firebase, no Sentry, no auth.
+- External APIs are pinned in DECISIONS.md. Never hardcode endpoints from PRD.md — that section is outdated and superseded by DECISIONS.md. If in doubt, DECISIONS.md wins.
 - All user data stays in expo-sqlite. Never write to AsyncStorage for financial data.
 - Base currency is USD, implicit. Never prompt user for base currency.
 - Snapshots are immutable once locked. Never mutate Snapshot_Items rows.

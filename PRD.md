@@ -1,3 +1,5 @@
+> ⚠️ **Partially superseded.** External API choices (sections 2 and 7) and any tech stack pins have been updated. For current decisions, see DECISIONS.md. In conflicts between PRD.md and DECISIONS.md, DECISIONS.md wins. This file remains the source of truth for product behavior, UX flows, and database schema — those have not changed.
+
 Product Requirements Document (PRD) for AI Agent: "NetWorth: The Local-First Wealth Tracker"
 
 1. Project Context & Constraints
