@@ -13,9 +13,10 @@
 - [x] Seed/reset utility for dev (src/db/dev.ts)
 
 ## Phase 3: API Layer
-- [ ] /src/api/fx.ts — Frankfurter integration with 24h cache
-- [ ] /src/api/tickers.ts — Yahoo Finance quote fetch with cache
-- [ ] Offline graceful degradation (use last cached rate)
+- [ ] Add api_cache table to schema.ts (key, value, fetched_at — TTL: 24h FX / 1h tickers)
+- [ ] /src/api/fx.ts — Fawazahmed0 Currency API with 24h cache (cdn.jsdelivr.net + fallback CDN)
+- [ ] /src/api/tickers.ts — stocks via Cloudflare Worker proxy, crypto via Binance API; 1h cache
+- [ ] Offline graceful degradation (return stale cache on fetch failure)
 
 ## Phase 4: Asset Grid + Bottom Sheets
 - [ ] Grid screen with 8 preset tiles

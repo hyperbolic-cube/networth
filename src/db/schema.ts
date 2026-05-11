@@ -30,5 +30,11 @@ export async function initDatabase(): Promise<void> {
       FOREIGN KEY (snapshot_id)          REFERENCES snapshots(id),
       FOREIGN KEY (asset_liability_id)   REFERENCES assets_liabilities(id)
     );
+
+    CREATE TABLE IF NOT EXISTS api_cache (
+      key         TEXT    PRIMARY KEY NOT NULL,
+      value       TEXT    NOT NULL,
+      fetched_at  INTEGER NOT NULL
+    );
   `);
 }
