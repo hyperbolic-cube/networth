@@ -72,3 +72,46 @@ authoritative contract for the stock price endpoint.
 - Verified via curl on 2026-05-11: TSLA, AAPL return real prices; `cached` flag flips correctly on repeat call; invalid/unknown symbols return 404; root `/` returns 404.
 - Source: code currently managed via Cloudflare dashboard ("Edit Code") only. Not yet in git.
   **TODO**: migrate to a wrangler-managed local repo before treating this as production. Without git, there is no history of changes to Worker code.
+
+  ## 2026-05-11 — Crypto handled as BROKER subtype, not top-level type
+
+The PRD grid has a ₿ Crypto tile, but the type system has no CRYPTO AssetType.
+Decision: add "CRYPTO" to BrokerMetadata.instrumentType (alongside "STOCK" |
+"BOND"). The Crypto grid tile opens BrokerSheet in crypto mode (label "Symbol
+e.g. BTC", routes to getCryptoPrice instead of getStockPrice).
+
+Rationale: BROKER already models ticker + quantity + price-fetch, which is
+exactly the crypto flow. A top-level CRYPTO type would ripple into CRUD,
+ItemType, and computed-value logic for no semantic gain. Filter by
+metadata.instrumentType when crypto-specific UI is needed later.
+
+## 2026-05-11 — LiabilityMetadata gains `principal: number`
+
+The PRD liability sheet collects 3 fields (principal, annual rate, monthly
+payment) and Phase 6 amortization requires the principal. Adding now while
+the surface area is small. The assets_liabilities table is unchanged —
+principal lives in the JSON metadata column, same as for other asset types.
+
+## 2026-05-11 — AUTO_LOAN deferred from Phase 4 grid
+
+Enum value AUTO_LOAN stays in AssetType, but no grid tile in Phase 4 (PRD
+specifies 8 tiles, AUTO_LOAN is not one of them). Same UX as MORTGAGE when
+needed; adding the tile is ~5 min of work. Defer until a user actually
+requests it post-launch.
+
+## 2026-05-11 — Stock prices: US-listed tickers only (current Worker contract)
+
+Cloudflare Worker → Finnhub /quote returns USD prices for US-listed tickers
+(NYSE/NASDAQ). Non-US tickers return 404, indistinguishable from "not
+found" in the API contract. For MVP this is accepted:
+- US is the primary target market.
+- KZ users (including the developer) typically hold US-listed positions
+  for stocks; local KASE listings can be entered manually via a generic
+  asset type if needed.
+
+UX implications:
+- BrokerSheet hint under ticker field: "US-listed tickers (e.g. TSLA, AAPL)"
+- Error copy on 404: "Symbol not found. Currently supports US-listed tickers only."
+
+International support is a Worker-side change (Finnhub /stock/profile2 for
+currency lookup + FX conversion to USD), deferred until post-launch demand.
