@@ -21,13 +21,13 @@
 - [x] Offline graceful degradation — withCache returns "stale" on transient failure if prior cache entry exists, else "unavailable/offline"; "not_found" is permanent and bypasses stale fallback
 
 ## Phase 4: Asset Grid + Bottom Sheets
-- [ ] Grid screen with 8 preset tiles
-- [ ] Bottom sheet: Bank/Cash (single number input)
-- [ ] Bottom sheet: Broker (Stock/Bond toggle, ticker, quantity, live price preview)
-- [ ] Bottom sheet: Real Estate (sqm × price/sqm)
-- [ ] Bottom sheet: Vehicle (current value)
-- [ ] Bottom sheet: Liabilities (principal, rate, monthly payment)
-- [ ] Haptics on every numeric tap
+- [x] Grid screen with 8 preset tiles (GridScreen.tsx; 2-col flex-wrap layout; no AUTO_LOAN tile per DECISIONS.md)
+- [x] Bottom sheet: Bank/Cash/Vehicle — one `SimpleValueSheet.tsx` parameterised by assetType (name + amount + SegmentedToggle currency; not 3 separate sheets)
+- [x] Bottom sheet: Broker — `BrokerSheet.tsx` with `mode="stock"` (Stock/Bond toggle, ticker, quantity, PricePreview) and `mode="crypto"` reuse (fixed CRYPTO instrumentType, Binance price)
+- [x] Bottom sheet: Real Estate — `RealEstateSheet.tsx` (sqm × price/sqm with live total preview)
+- [x] Bottom sheet: Vehicle — handled by SimpleValueSheet assetType="VEHICLE" (current market value)
+- [x] Bottom sheet: Liabilities — `LiabilitySheet.tsx` with `liabilityType` prop for MORTGAGE/CREDIT_DEBT (principal + interest_rate + monthly_payment + currency)
+- [x] Haptics on every numeric tap via `src/utils/haptics.ts` (tapLight/tapMedium/notifySuccess; fire-and-forget try/catch wrappers)
 
 ## Phase 5: Draft View + Snapshot Lock
 - [ ] List of all assets with computed current values
