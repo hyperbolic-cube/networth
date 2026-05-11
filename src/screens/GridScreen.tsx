@@ -1,7 +1,8 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useRef } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { tapLight } from "../utils/haptics";
 import { BrokerSheet } from "../components/BrokerSheet";
 import { LiabilitySheet } from "../components/LiabilitySheet";
 import { RealEstateSheet } from "../components/RealEstateSheet";
@@ -34,11 +35,15 @@ const TILES = [
 
 type TileKey = (typeof TILES)[number]["key"];
 
+interface GridScreenProps {
+  onOpenDraft: () => void;
+}
+
 /**
  * The Grid screen — first screen the user sees.
  * Renders 8 preset tiles that open type-specific bottom-sheet modals.
  */
-export function GridScreen() {
+export function GridScreen({ onOpenDraft }: GridScreenProps) {
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
 
@@ -65,10 +70,15 @@ export function GridScreen() {
     }
   }
 
+  const FOOTER_HEIGHT = 88;
+
   return (
     <View className="flex-1 bg-background">
       <ScrollView
-        contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: 40 }}
+        contentContainerStyle={{
+          paddingTop: insets.top + 16,
+          paddingBottom: items.length > 0 ? FOOTER_HEIGHT + insets.bottom + 16 : 40,
+        }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -116,6 +126,41 @@ export function GridScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Review Snapshot footer — only shown when there are items */}
+      {items.length > 0 && (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            backgroundColor: "#1C1C1E",
+            paddingHorizontal: 24,
+            paddingTop: 16,
+            paddingBottom: insets.bottom + 16,
+            borderTopWidth: 1,
+            borderTopColor: "#2C2C2E",
+          }}
+        >
+          <Pressable
+            onPress={() => {
+              tapLight();
+              onOpenDraft();
+            }}
+            style={{
+              backgroundColor: "#0A84FF",
+              borderRadius: 12,
+              paddingVertical: 16,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
+              Review Snapshot
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Bottom sheets — mounted here so they're in the BottomSheetModalProvider subtree */}
       <SimpleValueSheet ref={bankRef}      assetType="BANK" />

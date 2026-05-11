@@ -30,11 +30,11 @@
 - [x] Haptics on every numeric tap via `src/utils/haptics.ts` (tapLight/tapMedium/notifySuccess; fire-and-forget try/catch wrappers)
 
 ## Phase 5: Draft View + Snapshot Lock
-- [ ] List of all assets with computed current values
-- [ ] Sticky footer: Assets − Liabilities = Net Worth
-- [ ] Edit-via-numpad with previous value as ghost placeholder
-- [ ] Lock button → write to snapshots + snapshot_items in single transaction
-- [ ] Medium haptic on lock
+- [x] List of all assets with computed current values — `DraftScreen.tsx` + pure `src/utils/computeItems.ts` (per-type USD math, liabilities negative); fetch-on-mount via `computeItem`, `withCache` handles TTL; assets-first / liabilities-last sort; nav switch via `useState<"grid"|"draft">` in `App.tsx`, "Review Snapshot" CTA footer in `GridScreen.tsx`
+- [x] Sticky footer: Assets − Liabilities = Net Worth — Liabilities shown as positive under its label; Net Worth negative-aware (red)
+- [x] Edit-via-numpad — new `EditValueSheet.tsx` (SheetScaffold + MoneyInput), one editable field per type (amount / price_per_sqm / quantity / principal); broker price fetch failures get an ephemeral manual-price override (snapshot_items only, never written to assets_liabilities). Ghost/previous-value placeholder deferred to Phase 6 (no prior snapshot on first lock)
+- [x] Lock button → `lockSnapshot()` single transaction; disabled while loading, on unavailable prices, or empty list; post-lock shows inline "Snapshot locked" then returns to Grid (Dashboard is Phase 7)
+- [x] Medium haptic on lock — `tapMedium()` + `notifySuccess()`; numpad taps already fire `tapLight()` via MoneyInput
 
 ## Phase 6: Auto-Amortization
 - [ ] Pure function in /src/utils/amortization.ts implementing PRD formula
