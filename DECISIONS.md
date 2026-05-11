@@ -155,3 +155,40 @@ comment in `App.tsx`):
 - **Phase 7** — add `@react-navigation/native-stack` when Dashboard ↔ history
   back-navigation actually needs a stack.
 - Do **not** add `expo-router` at any phase.
+
+## 2026-05-11 — Known issue: Binance 451 misclassified as offline for US users
+
+crypto.ts classifies HTTP 451 (Unavailable for Legal Reasons) as transient,
+which surfaces in PricePreview as "Price unavailable — check your connection."
+This is misleading: Binance geo-blocks the US entirely, so for US users (the
+primary market) this is permanent, not network-related.
+
+Post-launch fix (Phase 9+, before US marketing push):
+- crypto.ts: map HTTP 451 to a new FetchOutcome kind, e.g. "geo_blocked"
+- ApiResult: add "unavailable" reason "geo_blocked"
+- PricePreview: copy becomes "Crypto prices unavailable in your region — enter manually"
+- Long-term: route crypto through the Cloudflare Worker proxy (same pattern as
+  stocks), since Workers don't have user-IP geo issues. Worker would proxy to
+  Binance, CoinGecko, or another provider.
+
+MVP behavior is acceptable for KZ dogfooding (Binance works in KZ). Track via
+user feedback after US launch — if anyone hits this, fix immediately.
+
+## 2026-05-11 — react-native-worklets pinned as direct dependency (reverses earlier decision)
+
+The earlier 2026-05-11 entry ("worklets stays transitive") broke at runtime:
+Reanimated 4.1.x + transitive worklets 0.8.x threw `TurboModule method
+"installTurboModule" called with 1 arguments (expected 0)` on app boot,
+even though TypeScript compiled cleanly. The runtime crash — not an
+expo-doctor warning — is what forced the change.
+
+Resolved by `npx expo install react-native-worklets`, which Expo's resolver
+pinned to a SDK-54-compatible version (0.5.1) and added to package.json
+dependencies.
+
+This supersedes the earlier "transitive only" decision. The general rule
+("don't add deps without reason") still stands; Reanimated 4 specifically
+requires worklets as a direct dep, and the boot crash is the reason.
+
+If a future npm prune or lockfile rebuild ever drops it, the app won't
+boot on either platform. This file is where to look.
