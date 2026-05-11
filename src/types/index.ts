@@ -65,3 +65,17 @@ export interface ComputedItem extends AssetLiability {
   value_in_original_currency: number;
   exchange_rate_to_usd: number;
 }
+
+/**
+ * Discriminated union returned by every API helper in /src/api/*.
+ *
+ * - "fresh"       Network success, or cache hit within TTL.
+ * - "stale"       Network unreachable but an expired cache entry exists —
+ *                 consumers should render an "as of <date>" hint.
+ * - "unavailable" No data at all: either the symbol does not exist ("not_found")
+ *                 or we are offline with no prior cache ("offline").
+ */
+export type ApiResult<T> =
+  | { status: "fresh";       value: T; fetchedAt: number }
+  | { status: "stale";       value: T; fetchedAt: number }
+  | { status: "unavailable"; reason: "offline" | "not_found" };

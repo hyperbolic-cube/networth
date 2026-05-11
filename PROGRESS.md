@@ -14,9 +14,11 @@
 
 ## Phase 3: API Layer
 - [x] Add api_cache table to schema.ts (key, value, fetched_at — TTL: 24h FX / 1h tickers) — commit b79dc32
-- [ ] /src/api/fx.ts — Fawazahmed0 Currency API with 24h cache (cdn.jsdelivr.net + fallback CDN)
-- [ ] /src/api/tickers.ts — stocks via Cloudflare Worker proxy, crypto via Binance API; 1h cache
-- [ ] Offline graceful degradation (return stale cache on fetch failure)
+- [x] /src/api/cache.ts — shared withCache helper: fresh/stale/unavailable policy, in-flight dedup per key, best-effort cache I/O
+- [x] /src/api/fx.ts — Fawazahmed0 Currency API, 24h cache, jsdelivr→pages.dev fallback, whole-file cache warming on success
+- [x] /src/api/crypto.ts — Binance public API (USDT pair, string-price parseFloat), 1h cache
+- [x] /src/api/stocks.ts — Cloudflare Worker proxy (networth-proxy.hyperbolic-cube.workers.dev), 1h cache
+- [x] Offline graceful degradation — withCache returns "stale" on transient failure if prior cache entry exists, else "unavailable/offline"; "not_found" is permanent and bypasses stale fallback
 
 ## Phase 4: Asset Grid + Bottom Sheets
 - [ ] Grid screen with 8 preset tiles
