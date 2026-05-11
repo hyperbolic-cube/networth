@@ -115,3 +115,43 @@ UX implications:
 
 International support is a Worker-side change (Finnhub /stock/profile2 for
 currency lookup + FX conversion to USD), deferred until post-launch demand.
+## 2026-05-11 — Phase 4 MVP scope cuts (US primary market, ship fast)
+
+Approved adjustments that trim Phase 4 surface area. Recorded here because they
+deviate from the PRD's literal UI breakdown (PRD §5 lists per-type sheets).
+
+- **No `CurrencyInput` component.** Currency is picked via a 4-option
+  `SegmentedToggle` (USD / KZT / EUR / RUB), rendered inline in the sheets that
+  need it. Default USD. A free-text/searchable currency picker is post-launch.
+- **One `SimpleValueSheet.tsx`, not three.** Bank, Cash and Vehicle sheets are
+  all "name + amount + currency" with different labels/emoji — implemented as a
+  single component parameterized by asset type. BrokerSheet, RealEstateSheet and
+  LiabilitySheet stay separate (genuinely different fields).
+- **`Typography.tsx` ships 3 variants:** `Display`, `Body`, `Caption`. `Heading`
+  and `Mono` get added when a screen actually needs them, not before.
+- **Bottom-sheet snap points: single `["85%"]` for every sheet.** No
+  complex-vs-simple differentiation yet.
+- **Live ticker price-preview debounce: 400 ms** (not 800 ms). The stock Worker
+  is Cloudflare-edge-cached and crypto hits Binance directly; perceived lag costs
+  more than the extra requests at this scale.
+- **No JS numeric sanitisation on amount inputs.** Rely on
+  `keyboardType="decimal-pad"` / `"numeric"` — the system keyboard already blocks
+  non-numeric entry. Ticker inputs keep client-side auto-uppercase.
+
+## 2026-05-11 — `react-native-worklets` stays a transitive dependency
+
+Reanimated 4 pulls in `react-native-worklets` and Expo SDK 54's
+`babel-preset-expo` wires its Babel plugin automatically. We do **not** add it to
+`package.json` as a direct dependency. Policy: add a dependency only when it
+solves a concrete problem in the change being made today.
+
+## 2026-05-11 — Navigation: deferred, with a written handoff
+
+Phase 4 ships a single screen, no router. The deferral path (to be left as a
+comment in `App.tsx`):
+- **Phase 4** — `GridScreen` only, no navigation.
+- **Phase 5** — `useState<"grid" | "draft">` to switch between Grid and Draft.
+  Still no router library.
+- **Phase 7** — add `@react-navigation/native-stack` when Dashboard ↔ history
+  back-navigation actually needs a stack.
+- Do **not** add `expo-router` at any phase.
