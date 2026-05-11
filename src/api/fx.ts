@@ -1,5 +1,6 @@
 import type { ApiResult } from "../types";
-import { TTL, FetchOutcome, withCache, writeCache } from "./cache";
+import { TTL, withCache, writeCache } from "./cache";
+import type { FetchOutcome } from "./cache";
 
 // ── Wire types (private) ───────────────────────────────────────────────────
 

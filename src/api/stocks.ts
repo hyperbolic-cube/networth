@@ -1,5 +1,6 @@
 import type { ApiResult } from "../types";
-import { TTL, FetchOutcome, withCache } from "./cache";
+import { TTL, withCache } from "./cache";
+import type { FetchOutcome } from "./cache";
 
 // ── Wire types (private) ───────────────────────────────────────────────────
 
@@ -11,6 +12,8 @@ interface WorkerPrice {
   fetched_at: number;
 }
 
+/** Documents the Worker error response shape per DECISIONS.md.
+ *  Not parsed at runtime — HTTP status code is authoritative. */
 interface WorkerError {
   error: string;
 }
