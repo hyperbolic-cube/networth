@@ -7,7 +7,7 @@ export type ItemType = AssetType | LiabilityType;
 // ── Type-specific metadata shapes ─────────────────────────────────────────
 
 export interface BrokerMetadata {
-  instrumentType: "STOCK" | "BOND";
+  instrumentType: "STOCK" | "BOND" | "CRYPTO";
   ticker: string;
   quantity: number;
 }
@@ -18,14 +18,21 @@ export interface RealEstateMetadata {
 }
 
 export interface LiabilityMetadata {
+  principal: number;        // current principal (total owed right now)
   interest_rate: number;    // annual, percent (e.g. 12 for 12%)
   monthly_payment: number;
+}
+
+/** Plain entered amount for BANK, CASH, and VEHICLE assets. */
+export interface SimpleValueMetadata {
+  amount: number;
 }
 
 export type AssetMetadata =
   | BrokerMetadata
   | RealEstateMetadata
   | LiabilityMetadata
+  | SimpleValueMetadata
   | Record<string, never>;
 
 // ── Database row types (mirror the SQLite schema exactly) ──────────────────

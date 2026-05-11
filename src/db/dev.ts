@@ -16,7 +16,7 @@ export async function seedDatabase(): Promise<void> {
     type: "BANK",
     name: "Chase Checking",
     currency: "USD",
-    metadata: {},
+    metadata: { amount: 12000 } as { amount: number },
   });
 
   const broker = await createAsset({
@@ -37,7 +37,7 @@ export async function seedDatabase(): Promise<void> {
     type: "MORTGAGE",
     name: "Home Loan",
     currency: "USD",
-    metadata: { interest_rate: 6.5, monthly_payment: 2200 },
+    metadata: { principal: 245000, interest_rate: 6.5, monthly_payment: 2200 },
   });
 
   // Liabilities use negative calculated_value_usd so they subtract from net worth.

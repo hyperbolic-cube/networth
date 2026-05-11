@@ -8,7 +8,14 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        surface: "#1C1C1E",
+        background:      "#000000",
+        surface:         "#1C1C1E",
+        surfaceElevated: "#2C2C2E",
+        textPrimary:     "#FFFFFF",
+        textSecondary:   "#8E8E93",
+        positive:        "#30D158",
+        negative:        "#FF453A",
+        accent:          "#0A84FF",
       },
     },
   },
