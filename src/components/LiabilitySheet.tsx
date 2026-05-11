@@ -5,6 +5,7 @@ import { MoneyInput } from "./MoneyInput";
 import { SegmentedToggle } from "./SegmentedToggle";
 import { SheetScaffold } from "./SheetScaffold";
 import { Caption } from "./Typography";
+import { useAssetsStore } from "../store/assetsStore";
 
 // ── LiabilitySheet ─────────────────────────────────────────────────────────
 //
@@ -64,7 +65,6 @@ export const LiabilitySheet = forwardRef<BottomSheetModal, LiabilitySheetProps>(
 
     async function handleSave() {
       if (!isValid) return;
-      const { useAssetsStore } = await import("../store/assetsStore");
       await useAssetsStore.getState().add({
         type: liabilityType,
         name: name.trim(),

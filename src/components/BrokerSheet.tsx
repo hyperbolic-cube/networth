@@ -6,6 +6,7 @@ import { PricePreview } from "./PricePreview";
 import { SegmentedToggle } from "./SegmentedToggle";
 import { SheetScaffold } from "./SheetScaffold";
 import { Caption } from "./Typography";
+import { useAssetsStore } from "../store/assetsStore";
 
 // ── BrokerSheet ────────────────────────────────────────────────────────────
 //
@@ -43,7 +44,6 @@ export const BrokerSheet = forwardRef<BottomSheetModal, BrokerSheetProps>(
 
     async function handleSave() {
       if (!isValid) return;
-      const { useAssetsStore } = await import("../store/assetsStore");
       const finalInstrumentType = mode === "crypto" ? "CRYPTO" : instrumentType;
       await useAssetsStore.getState().add({
         type: "BROKER",

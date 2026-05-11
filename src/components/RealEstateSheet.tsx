@@ -5,6 +5,7 @@ import { MoneyInput } from "./MoneyInput";
 import { SegmentedToggle } from "./SegmentedToggle";
 import { SheetScaffold } from "./SheetScaffold";
 import { Body, Caption } from "./Typography";
+import { useAssetsStore } from "../store/assetsStore";
 
 // ── RealEstateSheet ────────────────────────────────────────────────────────
 
@@ -45,7 +46,6 @@ export const RealEstateSheet = forwardRef<
 
   async function handleSave() {
     if (!isValid) return;
-    const { useAssetsStore } = await import("../store/assetsStore");
     await useAssetsStore.getState().add({
       type: "REAL_ESTATE",
       name: name.trim(),
