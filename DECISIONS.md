@@ -208,3 +208,18 @@ Fix (deferred): track overrides in a separate Map<itemId, override>
 in DraftScreen state that survives recompute, only cleared on row delete
 or successful network fetch. ~30 min of work. Defer until first user
 report or until offline-heavy use cases become target market.
+
+## 2026-05-12 — Phase 5 end-to-end math validated
+
+Manual smoke test on Android: created Bank (USD), Broker stock (TSLA),
+and Mortgage (KZT). Lock Snapshot completed; verified via console.log
+of latest snapshot + items:
+
+- Sum of items[].calculated_value_usd === total_net_worth_usd
+  (5000 + 4450 + (-108472.32) = -99022.32, exact match to all digits)
+- Liability calculated_value_usd correctly negative
+- KZT exchange_rate_to_usd ≈ 0.00217 (inverse of ~461 KZT/USD, realistic)
+- Broker exchange_rate_to_usd hardcoded to 1 (no FX call for broker)
+
+Phase 5 correctness chain is solid; downstream phases (amortization,
+dashboard) can rely on snapshot data being trustworthy.
