@@ -42,11 +42,11 @@
 **Goal:** rewire DraftScreen-as-modal into Today-as-home, add lock window detection, add auto-fill for missed months. Phase 5 code is salvaged where possible (`computeItems.ts`, `EditValueSheet.tsx`, math layer); the screen orchestration and the lock semantics change.
 
 ### 5b.1 — DB Migration
-- [ ] Add `is_auto_filled INTEGER DEFAULT 0` column to `snapshots` table via idempotent ALTER (catch duplicate-column error) in `src/db/schema.ts`
-- [ ] Create `user_settings(key TEXT PK, value TEXT NOT NULL)` table via `CREATE TABLE IF NOT EXISTS` in `src/db/schema.ts`
-- [ ] Seed `('edits_remaining', '3')` row on first init (INSERT OR IGNORE)
-- [ ] New file `src/db/settings.ts` with `getSetting`, `setSetting`, `getEditsRemaining`, `decrementEdits` (atomic SQL decrement)
-- [ ] Test migrations on existing devices via debug panel "Reset all (incl. prices)" — verify migrations re-run cleanly
+- [x] Add `is_auto_filled INTEGER DEFAULT 0` column to `snapshots` table via idempotent ALTER (catch duplicate-column error) in `src/db/schema.ts`
+- [x] Create `user_settings(key TEXT PK, value TEXT NOT NULL)` table via `CREATE TABLE IF NOT EXISTS` in `src/db/schema.ts`
+- [x] Seed `('edits_remaining', '3')` row on first init (INSERT OR IGNORE)
+- [x] New file `src/db/settings.ts` with `getSetting`, `setSetting`, `getEditsRemaining`, `decrementEdits` (atomic SQL decrement)
+- [x] Test migrations on existing devices via debug panel "Reset all (incl. prices)" — verify migrations re-run cleanly
 
 ### 5b.2 — Today screen
 - [ ] Rename `DraftScreen.tsx` → `TodayScreen.tsx`. Keep computeItems orchestration, row layout, edit-via-tap, EditValueSheet integration
