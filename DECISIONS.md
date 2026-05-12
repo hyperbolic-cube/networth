@@ -73,7 +73,7 @@ authoritative contract for the stock price endpoint.
 - Source: code currently managed via Cloudflare dashboard ("Edit Code") only. Not yet in git.
   **TODO**: migrate to a wrangler-managed local repo before treating this as production. Without git, there is no history of changes to Worker code.
 
-  ## 2026-05-11 — Crypto handled as BROKER subtype, not top-level type
+## 2026-05-11 — Crypto handled as BROKER subtype, not top-level type
 
 The PRD grid has a ₿ Crypto tile, but the type system has no CRYPTO AssetType.
 Decision: add "CRYPTO" to BrokerMetadata.instrumentType (alongside "STOCK" |
@@ -115,6 +115,7 @@ UX implications:
 
 International support is a Worker-side change (Finnhub /stock/profile2 for
 currency lookup + FX conversion to USD), deferred until post-launch demand.
+
 ## 2026-05-11 — Phase 4 MVP scope cuts (US primary market, ship fast)
 
 Approved adjustments that trim Phase 4 surface area. Recorded here because they
@@ -223,3 +224,185 @@ of latest snapshot + items:
 
 Phase 5 correctness chain is solid; downstream phases (amortization,
 dashboard) can rely on snapshot data being trustworthy.
+
+## 2026-05-12 — Real Estate ghost values: impure derivation accepted for MVP
+
+For Real Estate liabilities in EditValueSheet, the ghost placeholder for
+price_per_sqm is computed as snapshotItem.value_in_original_currency /
+current_metadata.sqm. This is impure: if the user changed sqm between
+snapshots (rare), the ghost shows a value unrelated to the actual past
+price/sqm.
+
+Fix (deferred): store metadata snapshot in snapshot_items as a JSON
+column, enabling correct ghost derivation. Requires DB migration; defer
+until users start changing sqm frequently (likely never).
+
+## 2026-05-12 — Broker quantity has no ghost value (deferred)
+
+snapshot_items stores price × quantity as value_in_original_currency,
+not quantity alone. Ghost for broker quantity field is therefore "0"
+placeholder, not previous quantity. Acceptable for MVP; users typically
+remember their position size.
+
+Fix (deferred): derive ghost as snapshotItem.value_in_original_currency /
+current_price (when current price is available). Slightly impure but
+visually useful as a memory anchor.
+
+---
+
+## 2026-05-12 — MAJOR PIVOT: Today + Locked Snapshots data model
+
+**This entry supersedes the original PRD §5 Episode 2/3 "review and lock" model.**
+PRD §5 has been rewritten to match. This decision affects Phase 5 implementation
+(partial rework) and shapes Phase 6 + Phase 7.
+
+**Problem with original model:** PRD framed locking as "user opens app on 1st of
+next month, reviews draft, locks." Reality: users don't open apps on schedule.
+The "review and lock" mental model puts the burden on the user to remember to do
+something on a specific day. Bad for retention.
+
+**New model: Two distinct states.**
+
+1. **"Today" view** — editable live state of `assets_liabilities`. No calendar
+   date. User can add/edit/delete any asset any day. Live broker prices, live FX.
+   Always available. The primary daily-use surface of the app.
+
+2. **Locked monthly snapshots** — immutable point-in-time records in `snapshots`
+   + `snapshot_items`. One per calendar month. `locked_at` is canonical
+   first-of-month (e.g. `2026-05-01T00:00:00Z`) regardless of when in the lock
+   window the user actually locked.
+
+**Lock window:** days 1–5 of each calendar month, local time
+(`today.getDate() <= 5`). Lock button visible only in this window. Days 6–31:
+Today view is editable but lock is hidden; hint shows next lock window date.
+
+**Auto-fill missed months:** if user opens app and last snapshot is more than
+one month old, the app auto-creates snapshots for every fully-elapsed missed
+month between then and now. Each auto-filled snapshot:
+- `is_auto_filled = 1` flag in snapshots row
+- Uses **current** broker/FX prices (not historical — see "current prices,
+  marked auto-filled" entry below for rationale)
+- Bank/Cash/Real Estate/Vehicle values = copy of previous snapshot
+- Liabilities = previous snapshot principal × applyAmortization(rate, payment)
+  for one cycle per month
+- Visually distinct on chart (dashed line / lighter dot — Phase 7 concern)
+
+**Edit credits:** free users get 3 global edit credits (counter in
+`user_settings.edits_remaining`, starts at 3). One full edit session of any
+locked snapshot = one credit. After 3, edits are a paid feature. Edit session
+allows changing any/all fields and adding/deleting assets within that snapshot.
+Counter is global, not per-snapshot.
+
+**Schema changes required** (Phase 5b):
+- `snapshots` adds: `is_auto_filled INTEGER DEFAULT 0`
+- New table: `user_settings(key TEXT PRIMARY KEY, value TEXT)`; first row:
+  `('edits_remaining', '3')`
+- Migrations via `ALTER TABLE ... ADD COLUMN` guarded by existence check,
+  in `initDatabase()`, idempotent.
+
+## 2026-05-12 — Auto-fill snapshots use current prices, marked is_auto_filled
+
+For auto-filled monthly snapshots (see pivot entry above), broker prices and
+FX rates are sourced from **current** APIs at the moment of auto-fill, not
+historical. This is a deliberate MVP tradeoff over fetching historical prices.
+
+**Rationale for skipping historical:**
+- Finnhub free tier does not include historical /candle data; upgrade costs
+  ~$10/month.
+- Binance historical klines are free but inherit the same US geo-block.
+- Fawazahmed0 supports dated URLs and is free, but partial-historical (only
+  FX) leaves broker prices inconsistent — not worth the asymmetry.
+- Total integration cost: 1–2 dev days + ongoing subscription cost.
+
+**What we do instead:**
+- `snapshots.is_auto_filled = 1` marks the snapshot.
+- Phase 7 Dashboard renders auto-filled points with a dashed line / lighter
+  dot vs. user-locked points (solid line / full dot).
+- Tap on auto-filled point in chart shows tooltip: "Auto-filled — prices
+  from {fillDate}, not historical."
+- Liability values ARE accurate (pure math from previous snapshot's principal +
+  rate + payment); only broker/FX is current-not-historical.
+- Bank/Cash/Real Estate/Vehicle values = frozen copy of previous snapshot
+  (we have no way to know what they were on that specific day).
+
+**Upgrade path (post-launch, paid feature):**
+- "Historical Accuracy" as part of paid tier: $X/month → on retroactive view
+  of auto-filled snapshots, app fetches historical prices and refines values.
+- Or: at auto-fill time, batch-fetch historical FX from Fawazahmed0 (free),
+  upgrade broker prices later if user pays.
+
+This is an honest UX (user sees auto-filled markers, knows the data is
+estimated) and zero new API integrations.
+
+## 2026-05-12 — Lock window: days 1–5 inclusive, local time
+
+The "lock window" is `today.getDate() >= 1 && today.getDate() <= 5`, evaluated
+in the device's local timezone. No timezone normalization — the user's intuition
+of "first of the month" is their local calendar.
+
+- Days 1–5: Lock button visible/active. User can lock current month's snapshot.
+- Days 6–end-of-month: Lock button hidden. Today view is fully editable; hint
+  shows "Next lock window: {first of next month}".
+- Cross-month boundary: at 00:00 local time on the 1st, lock window opens; at
+  00:00 on the 6th, it closes.
+
+Trade-offs of local-time approach:
+- (+) Matches user mental model. "It's the first" means it's the first for them.
+- (+) No backend, no timezone metadata to fetch or store.
+- (–) A user who travels across timezones during the window can lose 1–2 days
+  of access. Acceptable for MVP; revisit only if reports surface.
+
+## 2026-05-12 — DB migration strategy: idempotent ALTER TABLE in initDatabase()
+
+Schema migrations live inline in `src/db/schema.ts`. Pattern:
+```typescript
+// Existing CREATE TABLE IF NOT EXISTS for all tables
+// Then, migrations (each idempotent):
+await db.execAsync(`
+  ALTER TABLE snapshots ADD COLUMN is_auto_filled INTEGER DEFAULT 0;
+`).catch((e) => {
+  // SQLite throws on duplicate column add; swallow that specific error
+  if (!String(e).includes("duplicate column")) throw e;
+});
+```
+
+Migrations run on every `initDatabase()` call (i.e. every app launch). Must be
+idempotent (safe to run multiple times). No version table, no migration runner —
+SQLite's own duplicate-column error is the idempotency mechanism.
+
+**When to add a migration:** any schema change beyond the original Phase 2
+CREATE TABLE statements. Add a new ALTER statement in chronological order at
+the bottom of the migration block in `schema.ts`.
+
+**Limitations:**
+- This pattern works for ADD COLUMN, CREATE TABLE IF NOT EXISTS, CREATE INDEX
+  IF NOT EXISTS. Does NOT work for DROP COLUMN, RENAME COLUMN, type changes —
+  those require a versioned migration runner. If we hit one, add expo-sqlite's
+  `userVersion` PRAGMA-based migration system at that time.
+
+## 2026-05-12 — Edit credits stored in `user_settings` key-value table
+
+A new table `user_settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)` holds
+single-row app-wide settings. First row seeded by initDatabase migration:
+`('edits_remaining', '3')`. Value stored as TEXT for forward compatibility
+(future settings may be non-integer).
+
+**Why a generic key-value table, not a dedicated column on some other table:**
+- These are app-level settings, not user-account settings (no user table).
+- Future settings (haptics on/off, currency display preferences, etc.) will
+  use the same table.
+- Trivial migration; no schema churn when adding new settings.
+
+**Read/write helpers** (Phase 5b implementation, src/db/settings.ts):
+```typescript
+getSetting(key: string): Promise<string | null>
+setSetting(key: string, value: string): Promise<void>
+```
+
+Higher-level helpers wrap typed access:
+```typescript
+getEditsRemaining(): Promise<number>
+decrementEdits(): Promise<number>  // returns new value
+```
+
+`decrementEdits` is atomic via SQL: `UPDATE user_settings SET value = CAST(value AS INTEGER) - 1 WHERE key = 'edits_remaining' AND CAST(value AS INTEGER) > 0`. Returns 0 if already at 0 (paywall trigger).

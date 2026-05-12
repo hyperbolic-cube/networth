@@ -29,26 +29,89 @@
 - [x] Bottom sheet: Liabilities — `LiabilitySheet.tsx` with `liabilityType` prop for MORTGAGE/CREDIT_DEBT (principal + interest_rate + monthly_payment + currency)
 - [x] Haptics on every numeric tap via `src/utils/haptics.ts` (tapLight/tapMedium/notifySuccess; fire-and-forget try/catch wrappers)
 
-## Phase 5: Draft View + Snapshot Lock
-- [x] List of all assets with computed current values — `DraftScreen.tsx` + pure `src/utils/computeItems.ts` (per-type USD math, liabilities negative); fetch-on-mount via `computeItem`, `withCache` handles TTL; assets-first / liabilities-last sort; nav switch via `useState<"grid"|"draft">` in `App.tsx`, "Review Snapshot" CTA footer in `GridScreen.tsx`
+## Phase 5: Draft View + Snapshot Lock — DEPRECATED, see Phase 5b
+- [x] (original Phase 5 implementation is complete and validated, but the data model has pivoted as of 2026-05-12 — see DECISIONS.md "MAJOR PIVOT" entry. Phase 5b replaces this.)
+- [x] List of all assets with computed current values — `DraftScreen.tsx` + pure `src/utils/computeItems.ts` (per-type USD math, liabilities negative)
 - [x] Sticky footer: Assets − Liabilities = Net Worth — Liabilities shown as positive under its label; Net Worth negative-aware (red)
-- [x] Edit-via-numpad — new `EditValueSheet.tsx` (SheetScaffold + MoneyInput), one editable field per type (amount / price_per_sqm / quantity / principal); broker price fetch failures get an ephemeral manual-price override (snapshot_items only, never written to assets_liabilities). Ghost/previous-value placeholder deferred to Phase 6 (no prior snapshot on first lock)
-- [x] Lock button → `lockSnapshot()` single transaction; disabled while loading, on unavailable prices, or empty list; post-lock shows inline "Snapshot locked" then returns to Grid (Dashboard is Phase 7)
-- [x] Medium haptic on lock — `tapMedium()` + `notifySuccess()`; numpad taps already fire `tapLight()` via MoneyInput
+- [x] Edit-via-numpad — new `EditValueSheet.tsx` (SheetScaffold + MoneyInput), one editable field per type
+- [x] Lock button → `lockSnapshot()` single transaction
+- [x] Medium haptic on lock
 
-## Phase 6: Auto-Amortization
-- [ ] Pure function in /src/utils/amortization.ts implementing PRD formula
-- [ ] Unit test against 3 known cases (paste expected values)
-- [ ] Wire into draft generation when previous snapshot exists
+## Phase 5b: Today + Lock Window Model (replaces Phase 5)
+
+**Goal:** rewire DraftScreen-as-modal into Today-as-home, add lock window detection, add auto-fill for missed months. Phase 5 code is salvaged where possible (`computeItems.ts`, `EditValueSheet.tsx`, math layer); the screen orchestration and the lock semantics change.
+
+### 5b.1 — DB Migration
+- [ ] Add `is_auto_filled INTEGER DEFAULT 0` column to `snapshots` table via idempotent ALTER (catch duplicate-column error) in `src/db/schema.ts`
+- [ ] Create `user_settings(key TEXT PK, value TEXT NOT NULL)` table via `CREATE TABLE IF NOT EXISTS` in `src/db/schema.ts`
+- [ ] Seed `('edits_remaining', '3')` row on first init (INSERT OR IGNORE)
+- [ ] New file `src/db/settings.ts` with `getSetting`, `setSetting`, `getEditsRemaining`, `decrementEdits` (atomic SQL decrement)
+- [ ] Test migrations on existing devices via debug panel "Reset all (incl. prices)" — verify migrations re-run cleanly
+
+### 5b.2 — Today screen
+- [ ] Rename `DraftScreen.tsx` → `TodayScreen.tsx`. Keep computeItems orchestration, row layout, edit-via-tap, EditValueSheet integration
+- [ ] Remove Lock button from screen body. Today screen is "always editable, no lock action".
+- [ ] Add "+ Add" CTA in header/footer that switches to Grid (so user can add new assets while in Today)
+- [ ] Update App.tsx: `useState<"grid" | "today">`, default to "today" if any assets exist, else "grid"
+- [ ] GridScreen's CTA renames from "Review Snapshot" → "View Today" (when items exist)
+
+### 5b.3 — Lock window detection + button
+- [ ] New util `src/utils/lockWindow.ts`:
+  - `isInLockWindow(date = new Date()): boolean` — returns `date.getDate() <= 5`
+  - `getCurrentMonthSnapshotDate(): string` — returns `YYYY-MM-01T00:00:00Z` for current month
+  - `nextLockWindowDate(date = new Date()): string` — for the "Next lock window: ..." hint
+- [ ] New DB helper in `src/db/snapshots.ts`: `getSnapshotByMonth(yearMonth: string): Snapshot | null` (e.g. `"2026-05"`)
+- [ ] In TodayScreen, render "Lock {Month} Snapshot" button when:
+  - `isInLockWindow()` is true AND
+  - `getSnapshotByMonth(currentYearMonth)` returns null (no snapshot exists for this month yet)
+- [ ] When lock button is hidden (outside window), show small caption: "Next lock window: {nextLockWindowDate}"
+- [ ] Lock action: call `lockSnapshot()` (existing) with `locked_at = canonicalFirstOfMonth`, `is_auto_filled = 0`. After successful lock: apply amortization to all liabilities' `assets_liabilities.metadata.principal`, navigate to Today (refreshed)
+
+### 5b.4 — Auto-fill missed months
+- [ ] New util `src/utils/autofill.ts`:
+  - `getMissedMonths(lastSnapshotDate: string | null, today = new Date()): string[]` — returns list of `YYYY-MM-01` for each missed month
+  - `autoFillMissedSnapshots(missedMonths: string[]): Promise<void>` — for each, in order, build a snapshot from previous (or current `assets_liabilities` if no prior) + amortization, write transactionally
+- [ ] On App.tsx startup (after initDatabase, before first render), call auto-fill. Show loading state while running.
+- [ ] Auto-filled snapshots get `is_auto_filled = 1`
+- [ ] After auto-fill: also update liabilities' `assets_liabilities.metadata.principal` to reflect cumulative amortization
+
+### 5b.5 — Lock contract update
+- [ ] `lockSnapshot()` signature updated: accepts `{ items, lockedAt, isAutoFilled }` parameter. `lockedAt` is the canonical month timestamp; `isAutoFilled` is boolean.
+- [ ] Snapshots inserted with these explicit values. Existing call sites updated.
+- [ ] Snapshot table queries also expose `is_auto_filled` in the SnapshotRow type.
+
+### 5b.6 — Smoke test
+- [ ] Reset DB, create 3 assets in Grid (Bank USD, Broker TSLA, Mortgage KZT)
+- [ ] Verify Today screen renders with computed values + footer math correct
+- [ ] If today is day 1–5: verify Lock button visible, lock works, snapshot has `is_auto_filled = 0`, principal in `assets_liabilities` decremented
+- [ ] If today is day 6+: verify Lock button hidden + hint shown
+- [ ] Test auto-fill: manually insert a snapshot with `locked_at = 2026-01-01`, reload app, verify Feb / Mar / Apr (etc.) auto-fills appear with `is_auto_filled = 1`, liabilities cumulatively amortized
+
+## Phase 6: Auto-Amortization (refocused — now smaller, math-only)
+- [ ] Pure function in `src/utils/amortization.ts` implementing PRD formula with validation (principal ≤ 0 → 0, rate < 0 → throw, payment ≤ 0 → unchanged, clamp result to ≥ 0)
+- [ ] Unit tests (Jest + jest-expo) with 4–5 hand-calculated cases (normal, final-payment clamp, interest-only identity, zero-rate, already-paid)
+- [ ] `applyAmortization()` wired into Phase 5b lock + auto-fill flows
+- [ ] Ghost values in EditValueSheet — per-type derivation from `getSnapshotItems(latestSnapshot.id)` map (BANK/CASH/VEHICLE: amount; MORTGAGE/CREDIT_DEBT/AUTO_LOAN: principal; REAL_ESTATE: price/sqm with impure derivation; BROKER: no ghost)
 
 ## Phase 7: Dashboard
-- [ ] Net worth hero + delta vs previous snapshot
-- [ ] Line chart over time
+- [ ] Net worth hero (most recent snapshot) + delta vs previous snapshot
+- [ ] Line chart over time — auto-filled snapshots rendered with dashed line / lighter dot
 - [ ] Donut chart for allocation
+- [ ] History list (scrollable, oldest → newest, tappable)
+- [ ] Today vs. Last Snapshot card
 - [ ] Empty state when no snapshots exist
+- [ ] Add `@react-navigation/native-stack` (per DECISIONS.md nav plan) for Dashboard ↔ Today ↔ Snapshot Detail nav
 
 ## Phase 8: Polish
-- [ ] Dark mode tokens (#000, #1C1C1E)
+- [ ] Dark mode tokens (#000, #1C1C1E) — verify cross-platform
 - [ ] Loading states for API fetches
 - [ ] Error boundaries
 - [ ] Test on iOS + Android
+- [ ] App icon, splash screen polish
+
+## Phase 9: Paywall + Edit Credit Gating
+- [ ] Snapshot detail screen — shows the snapshot's items, has "Edit" button
+- [ ] "Edit" button checks `getEditsRemaining()`. If > 0, enters edit mode; if 0, shows paywall.
+- [ ] Edit mode: similar to Today but scoped to one snapshot. User edits any/all fields, can add/delete assets. On Save: overwrite `snapshot_items`, recompute `total_net_worth_usd`, decrement `edits_remaining` via `decrementEdits()`.
+- [ ] Paywall screen (placeholder copy + button — actual IAP integration is post-MVP)
+- [ ] In-app counter visible somewhere ("3 free edits remaining")
