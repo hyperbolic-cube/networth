@@ -1,6 +1,6 @@
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
-import { useRef } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tapLight } from "../utils/haptics";
 import { BrokerSheet } from "../components/BrokerSheet";
@@ -10,6 +10,9 @@ import { SimpleValueSheet } from "../components/SimpleValueSheet";
 import { Tile } from "../components/Tile";
 import { Body, Caption, Display } from "../components/Typography";
 import { useAssetsStore } from "../store/assetsStore";
+import { resetDatabase, seedDatabase } from "../db/dev";
+import { db } from "../db/client";
+import { initDatabase } from "../db/schema";
 
 // ── GridScreen ─────────────────────────────────────────────────────────────
 //
@@ -70,6 +73,27 @@ export function GridScreen({ onOpenDraft }: GridScreenProps) {
     }
   }
 
+  const [busy, setBusy] = useState<null | "reset" | "seed" | "resetAll">(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+
+  async function runAction(
+    kind: "reset" | "seed" | "resetAll",
+    fn: () => Promise<void>,
+    msg: string,
+  ) {
+    tapLight();
+    setBusy(kind);
+    try {
+      await fn();
+      setConfirm(msg);
+      setTimeout(() => setConfirm(null), 1000);
+    } catch (err) {
+      console.warn("[GridScreen debug]", err);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const FOOTER_HEIGHT = 88;
 
   return (
@@ -122,6 +146,93 @@ export function GridScreen({ onOpenDraft }: GridScreenProps) {
                   </Caption>
                 </View>
               ))}
+            </View>
+          </View>
+        )}
+
+        {/* ── Debug panel (DEV only) ──────────────────────────────────────── */}
+        {__DEV__ && (
+          <View className="mt-8 px-6">
+            <View className="border border-negative rounded-xl p-4">
+              {/* Header */}
+              <Text className="text-negative font-bold text-sm mb-0.5">DEV</Text>
+              <Text className="text-textSecondary text-xs mb-4">
+                Debug — not shown in release builds
+              </Text>
+
+              {/* Buttons */}
+              <View className="gap-y-2">
+                <Pressable
+                  disabled={busy !== null}
+                  onPress={() =>
+                    runAction(
+                      "reset",
+                      async () => {
+                        await resetDatabase();
+                        await useAssetsStore.getState().load();
+                      },
+                      "DB reset",
+                    )
+                  }
+                  className="bg-surfaceElevated rounded-lg py-3 items-center"
+                >
+                  {busy === "reset" ? (
+                    <ActivityIndicator size="small" color="#8E8E93" />
+                  ) : (
+                    <Text className="text-textPrimary text-sm">Reset (keep prices)</Text>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  disabled={busy !== null}
+                  onPress={() =>
+                    runAction(
+                      "seed",
+                      async () => {
+                        await resetDatabase();
+                        await seedDatabase();
+                        await useAssetsStore.getState().load();
+                      },
+                      "Reset + seeded",
+                    )
+                  }
+                  className="bg-surfaceElevated rounded-lg py-3 items-center"
+                >
+                  {busy === "seed" ? (
+                    <ActivityIndicator size="small" color="#8E8E93" />
+                  ) : (
+                    <Text className="text-textPrimary text-sm">Reset + Seed</Text>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  disabled={busy !== null}
+                  onPress={() =>
+                    runAction(
+                      "resetAll",
+                      async () => {
+                        await resetDatabase();
+                        await db.execAsync("DROP TABLE IF EXISTS api_cache;");
+                        await initDatabase();
+                        await useAssetsStore.getState().load();
+                      },
+                      "Reset all",
+                    )
+                  }
+                  className="bg-surfaceElevated rounded-lg py-3 items-center"
+                >
+                  {busy === "resetAll" ? (
+                    <ActivityIndicator size="small" color="#8E8E93" />
+                  ) : (
+                    <Text className="text-negative text-sm">Reset all (incl. prices)</Text>
+                  )}
+                </Pressable>
+              </View>
+
+              {/* Confirmation */}
+              {confirm !== null && (
+                <Text className="text-positive text-xs text-center mt-3">{confirm}</Text>
+              )}
             </View>
           </View>
         )}
