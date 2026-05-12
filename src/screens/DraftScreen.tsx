@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { lockSnapshot } from "../db/snapshots";
+import { getLatestSnapshot, getSnapshotItems, lockSnapshot } from "../db/snapshots";
 import { useAssetsStore } from "../store/assetsStore";
 import type {
   AssetLiability,
@@ -281,6 +281,11 @@ export function DraftScreen({ onClose }: DraftScreenProps) {
       tapMedium();
       notifySuccess();
       setLockSuccess(true);
+      if (__DEV__) {
+        const snapshot = await getLatestSnapshot();
+        const items = snapshot ? await getSnapshotItems(snapshot.id) : [];
+        console.log("[Snapshot locked]", JSON.stringify({ snapshot, items }, null, 2));
+      }
       setTimeout(() => {
         onClose();
       }, 1500);
