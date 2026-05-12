@@ -32,3 +32,8 @@
 - After finishing a task, update PROGRESS.md with [x] and a one-line note.
 - If you need to deviate from PRD.md, append the reason to DECISIONS.md and ask me first.
 - Never install a package without listing it and waiting for approval.
+
+## Git workflow
+- Always commit on `main` for this project (no feature branches).
+- Never create a new branch without explicit instruction from the user.
+- If `main` has uncommitted changes that would be lost or polluted, STOP and ask the user how to proceed — do not silently work around by creating a branch.
