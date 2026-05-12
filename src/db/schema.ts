@@ -37,4 +37,39 @@ export async function initDatabase(): Promise<void> {
       fetched_at  INTEGER NOT NULL
     );
   `);
+
+  // ── Tables added after Phase 2 ─────────────────────────────────────────────
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      key   TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
+  `);
+
+  // Seed default settings; INSERT OR IGNORE preserves existing values on re-init.
+  await db.execAsync(
+    `INSERT OR IGNORE INTO user_settings (key, value) VALUES ('edits_remaining', '3');`
+  );
+
+  // ── Migrations (idempotent — run on every app launch) ─────────────────────
+  // ADD COLUMN: catch "duplicate column" and swallow; rethrow anything else.
+
+  await db.execAsync(
+    `ALTER TABLE snapshots ADD COLUMN is_auto_filled INTEGER DEFAULT 0;`
+  ).catch((e: unknown) => {
+    if (!String(e instanceof Error ? e.message : e).includes("duplicate column")) throw e;
+  });
+
+  // ── Dev schema verification ────────────────────────────────────────────────
+
+  if (__DEV__) {
+    const snapshotsSchema = await db.getFirstAsync<{ sql: string }>(
+      `SELECT sql FROM sqlite_master WHERE type='table' AND name='snapshots'`
+    );
+    console.log("[schema] snapshots:", snapshotsSchema?.sql);
+
+    const settingsRows = await db.getAllAsync(`SELECT * FROM user_settings`);
+    console.log("[schema] user_settings:", settingsRows);
+  }
 }

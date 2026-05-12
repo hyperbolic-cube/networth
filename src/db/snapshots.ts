@@ -22,6 +22,7 @@ export async function lockSnapshot(items: LockItemInput[]): Promise<Snapshot> {
     id: randomUUID(),
     total_net_worth_usd: totalNetWorth,
     locked_at: new Date().toISOString(),
+    is_auto_filled: 0,
   };
 
   const rows: SnapshotItem[] = items.map((item) => ({

@@ -52,6 +52,7 @@ export interface Snapshot {
   id: string;
   total_net_worth_usd: number;
   locked_at: string;        // ISO timestamp
+  is_auto_filled: 0 | 1;   // 1 = machine-created because user missed lock window
 }
 
 /** Table: snapshot_items */

@@ -7,6 +7,7 @@ export async function resetDatabase(): Promise<void> {
   await db.execAsync(`DROP TABLE IF EXISTS snapshot_items;`);
   await db.execAsync(`DROP TABLE IF EXISTS snapshots;`);
   await db.execAsync(`DROP TABLE IF EXISTS assets_liabilities;`);
+  await db.execAsync(`DROP TABLE IF EXISTS user_settings;`);
   await initDatabase();
 }
 
