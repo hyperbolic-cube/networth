@@ -8,7 +8,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getLatestSnapshot, getSnapshotItems, lockSnapshot } from "../db/snapshots";
+// Phase 5b.3: lock button moves here
+// import { getLatestSnapshot, getSnapshotItems, lockSnapshot } from "../db/snapshots";
 import { useAssetsStore } from "../store/assetsStore";
 import type {
   AssetLiability,
@@ -20,7 +21,9 @@ import type {
 import type { ComputedItem } from "../types";
 import { EditValueSheet } from "../components/EditValueSheet";
 import { Body, Caption, Display } from "../components/Typography";
-import { tapLight, tapMedium, notifySuccess } from "../utils/haptics";
+// Phase 5b.3: lock button moves here
+// import { tapLight, tapMedium, notifySuccess } from "../utils/haptics";
+import { tapLight } from "../utils/haptics";
 import { computeItem, type RowStatus } from "../utils/computeItems";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -67,17 +70,18 @@ const FIELD_LABELS: Record<EditField, string> = {
 
 type RowEntry = { computed: ComputedItem; status: RowStatus };
 
-// ── DraftScreen ────────────────────────────────────────────────────────────
+// ── TodayScreen ────────────────────────────────────────────────────────────
 
-interface DraftScreenProps {
-  onClose: () => void;
+interface TodayScreenProps {
+  onOpenGrid: () => void;
 }
 
 /**
- * Draft View — shows all assets/liabilities with live computed values,
- * lets users tap to edit individual fields, and locks the snapshot.
+ * Today — the primary daily-use surface. Shows all assets/liabilities with
+ * live computed values. Always editable; no lock action on this screen.
+ * Lock button returns in Phase 5b.3 (conditional on lock window).
  */
-export function DraftScreen({ onClose }: DraftScreenProps) {
+export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
   const sorted = sortItems(items);
@@ -248,56 +252,56 @@ export function DraftScreen({ onClose }: DraftScreenProps) {
   }
   const netWorth = assetsTotal - liabilitiesAbs;
 
-  // ── Lock state ─────────────────────────────────────────────────────────
-  const [locking, setLocking] = useState(false);
-  const [lockError, setLockError] = useState(false);
-  const [lockSuccess, setLockSuccess] = useState(false);
-
-  const rowValues = Object.values(rowMap);
-  const rowsReady = rowValues.length === items.length; // guards the first-render frame before the effect seeds rowMap
-  const anyLoading = rowValues.some((r) => r.status === "loading");
-  const anyUnavailable = rowValues.some(
-    (r) =>
-      r.status === "unavailable_not_found" || r.status === "unavailable_offline"
-  );
-  const lockDisabled =
-    items.length === 0 || !rowsReady || anyLoading || anyUnavailable || locking;
-
-  async function handleLock() {
-    if (lockDisabled) return;
-    setLocking(true);
-    setLockError(false);
-    try {
-      const lockItems = sorted.map((item) => {
-        const entry = rowMap[item.id];
-        return {
-          asset_liability_id: item.id,
-          value_in_original_currency: entry.computed.value_in_original_currency,
-          exchange_rate_to_usd: entry.computed.exchange_rate_to_usd,
-          calculated_value_usd: entry.computed.computed_value_usd,
-        };
-      });
-      await lockSnapshot(lockItems);
-      tapMedium();
-      notifySuccess();
-      setLockSuccess(true);
-      if (__DEV__) {
-        const snapshot = await getLatestSnapshot();
-        const items = snapshot ? await getSnapshotItems(snapshot.id) : [];
-        console.log("[Snapshot locked]", JSON.stringify({ snapshot, items }, null, 2));
-      }
-      setTimeout(() => {
-        onClose();
-      }, 1500);
-    } catch (err) {
-      console.error("[DraftScreen] lockSnapshot failed:", err);
-      setLocking(false);
-      setLockError(true);
-    }
-  }
+  // Phase 5b.3: lock button moves here
+  // const rowValues = Object.values(rowMap);
+  // const rowsReady = rowValues.length === items.length;
+  // const anyLoading = rowValues.some((r) => r.status === "loading");
+  // const anyUnavailable = rowValues.some(
+  //   (r) => r.status === "unavailable_not_found" || r.status === "unavailable_offline"
+  // );
+  // const lockDisabled =
+  //   items.length === 0 || !rowsReady || anyLoading || anyUnavailable || locking;
+  //
+  // const [locking, setLocking] = useState(false);
+  // const [lockError, setLockError] = useState(false);
+  // const [lockSuccess, setLockSuccess] = useState(false);
+  //
+  // async function handleLock() {
+  //   if (lockDisabled) return;
+  //   setLocking(true);
+  //   setLockError(false);
+  //   try {
+  //     const lockItems = sorted.map((item) => {
+  //       const entry = rowMap[item.id];
+  //       return {
+  //         asset_liability_id: item.id,
+  //         value_in_original_currency: entry.computed.value_in_original_currency,
+  //         exchange_rate_to_usd: entry.computed.exchange_rate_to_usd,
+  //         calculated_value_usd: entry.computed.computed_value_usd,
+  //       };
+  //     });
+  //     await lockSnapshot(lockItems);
+  //     tapMedium();
+  //     notifySuccess();
+  //     setLockSuccess(true);
+  //     if (__DEV__) {
+  //       const snapshot = await getLatestSnapshot();
+  //       const items = snapshot ? await getSnapshotItems(snapshot.id) : [];
+  //       console.log("[Snapshot locked]", JSON.stringify({ snapshot, items }, null, 2));
+  //     }
+  //     setTimeout(() => { onOpenGrid(); }, 1500);
+  //   } catch (err) {
+  //     console.error("[TodayScreen] lockSnapshot failed:", err);
+  //     setLocking(false);
+  //     setLockError(true);
+  //   }
+  // }
 
   // ── Row renderer ───────────────────────────────────────────────────────
-  const FOOTER_HEIGHT = 220;
+
+  // TODO Phase 5b.3: grow back to ~180 when Lock button conditionally returns.
+  // Long-term: replace with onLayout-based measurement (defer to later phase).
+  const FOOTER_HEIGHT = 140;
 
   function renderRow({ item }: { item: AssetLiability }) {
     const entry = rowMap[item.id];
@@ -366,13 +370,13 @@ export function DraftScreen({ onClose }: DraftScreenProps) {
         <Pressable
           onPress={() => {
             tapLight();
-            onClose();
+            onOpenGrid();
           }}
           hitSlop={12}
         >
-          <Body className="text-accent">← Grid</Body>
+          <Body className="text-accent">+ Add</Body>
         </Pressable>
-        <Display className="flex-1">Review snapshot</Display>
+        <Display className="flex-1">Today</Display>
       </View>
 
       {/* Row list */}
@@ -417,7 +421,7 @@ export function DraftScreen({ onClose }: DraftScreenProps) {
             {formatMoney(liabilitiesAbs)}
           </Caption>
         </View>
-        <View className="flex-row justify-between mb-4">
+        <View className="flex-row justify-between">
           <Body className="font-semibold">Net Worth</Body>
           <Body
             className={`font-bold ${
@@ -430,25 +434,17 @@ export function DraftScreen({ onClose }: DraftScreenProps) {
           </Body>
         </View>
 
-        {/* Lock success */}
-        {lockSuccess && (
+        {/* Phase 5b.3: lock button moves here */}
+        {/* {lockSuccess && (
           <View className="mb-3 items-center">
-            <Caption className="text-positive font-semibold">
-              Snapshot locked
-            </Caption>
+            <Caption className="text-positive font-semibold">Snapshot locked</Caption>
           </View>
         )}
-
-        {/* Lock error */}
         {lockError && (
           <View className="mb-2 items-center">
-            <Caption className="text-negative">
-              Couldn't save — try again
-            </Caption>
+            <Caption className="text-negative">Couldn't save — try again</Caption>
           </View>
         )}
-
-        {/* Lock button */}
         {!lockSuccess && (
           <Pressable
             onPress={lockDisabled ? undefined : handleLock}
@@ -465,14 +461,12 @@ export function DraftScreen({ onClose }: DraftScreenProps) {
             {locking ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text
-                style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}
-              >
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
                 Lock Snapshot
               </Text>
             )}
           </Pressable>
-        )}
+        )} */}
       </View>
 
       {/* Edit value sheet — mounted once, reused for every row */}

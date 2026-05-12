@@ -7,7 +7,7 @@ import { View } from "react-native";
 
 // ── EditValueSheet ─────────────────────────────────────────────────────────
 //
-// Lightweight bottom-sheet for editing a single numeric value in DraftScreen.
+// Lightweight bottom-sheet for editing a single numeric value in TodayScreen.
 // Mounted once and reused for every row; re-seeded via the initialValue prop.
 
 interface EditValueSheetProps {

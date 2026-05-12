@@ -18,8 +18,8 @@ import { initDatabase } from "../db/schema";
 //
 // Phase 4: single screen, no router. Navigation deferral plan:
 //   Phase 4 — GridScreen only, no navigation library.
-//   Phase 5 — useState<"grid" | "draft"> to switch between Grid and Draft;
-//              still no router library.
+//   Phase 5b — useState<"grid" | "today"> to switch between Grid and Today;
+//               still no router library.
 //   Phase 7 — add @react-navigation/native-stack when Dashboard ↔ history
 //              back-navigation actually needs a stack.
 //   Never add expo-router at any phase.
@@ -39,14 +39,14 @@ const TILES = [
 type TileKey = (typeof TILES)[number]["key"];
 
 interface GridScreenProps {
-  onOpenDraft: () => void;
+  onOpenToday: () => void;
 }
 
 /**
  * The Grid screen — first screen the user sees.
  * Renders 8 preset tiles that open type-specific bottom-sheet modals.
  */
-export function GridScreen({ onOpenDraft }: GridScreenProps) {
+export function GridScreen({ onOpenToday }: GridScreenProps) {
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
 
@@ -257,7 +257,7 @@ export function GridScreen({ onOpenDraft }: GridScreenProps) {
           <Pressable
             onPress={() => {
               tapLight();
-              onOpenDraft();
+              onOpenToday();
             }}
             style={{
               backgroundColor: "#0A84FF",
@@ -267,7 +267,7 @@ export function GridScreen({ onOpenDraft }: GridScreenProps) {
             }}
           >
             <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
-              Review Snapshot
+              View Today
             </Text>
           </Pressable>
         </View>
