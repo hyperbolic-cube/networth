@@ -192,3 +192,19 @@ requires worklets as a direct dep, and the boot crash is the reason.
 
 If a future npm prune or lockfile rebuild ever drops it, the app won't
 boot on either platform. This file is where to look.
+
+## 2026-05-12 — Known issue: broker price overrides lost on adjacent row edit
+
+In DraftScreen, manual broker price overrides (set when network/Worker
+unavailable) live in screen-local state, not in assets_liabilities or any
+persisted store. If the user edits an adjacent row (Cash amount, etc.),
+assetsStore.update triggers a reload + recompute, which re-fetches all
+broker prices. Failed re-fetches return unavailable, wiping the override.
+
+User workaround: re-enter the manual price. Lock button re-disables until
+all unavailables are re-overridden.
+
+Fix (deferred): track overrides in a separate Map<itemId, override>
+in DraftScreen state that survives recompute, only cleared on row delete
+or successful network fetch. ~30 min of work. Defer until first user
+report or until offline-heavy use cases become target market.
