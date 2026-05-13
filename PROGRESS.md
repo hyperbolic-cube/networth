@@ -1,5 +1,9 @@
 # Build Progress
 
+## Dev Tooling Milestones
+- [x] 2026-05-12 — Time travel (src/utils/clock.ts + src/store/clockStore.ts + debug panel controls). Unlocks Phase 5b.3 (lock window), 5b.4 (auto-fill), Phase 7 (multi-month chart) testing without waiting for real calendar.
+- [x] 2026-05-11 — Debug panel on GridScreen (reset/seed buttons, dev-gated).
+
 ## Phase 1: Foundation
 - [x] Install deps: zustand, expo-sqlite, nativewind, @gorhom/bottom-sheet, expo-haptics, react-native-gifted-charts, expo-crypto (+ peers: reanimated, gesture-handler, safe-area-context, svg, tailwindcss@3.4.17)
 - [x] Configure NativeWind (tailwind.config.js, babel.config.js, metro.config.js, global.css, nativewind-env.d.ts)
