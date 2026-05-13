@@ -111,3 +111,15 @@ export async function getLatestAutoFilledSnapshot(): Promise<Snapshot | null> {
     `SELECT * FROM snapshots WHERE is_auto_filled = 1 ORDER BY locked_at DESC LIMIT 1`,
   );
 }
+
+/**
+ * Returns the most recent snapshot whose locked_at is strictly before the
+ * given ISO timestamp. Used by auto-fill to find the "previous" snapshot for
+ * a given missed month so amortization and frozen values can be seeded.
+ */
+export async function getSnapshotBefore(lockedAt: string): Promise<Snapshot | null> {
+  return db.getFirstAsync<Snapshot>(
+    `SELECT * FROM snapshots WHERE locked_at < ? ORDER BY locked_at DESC LIMIT 1`,
+    [lockedAt],
+  );
+}

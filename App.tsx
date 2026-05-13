@@ -17,18 +17,37 @@ import { ActivityIndicator, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { initDatabase } from "./src/db/schema";
+import { getLatestSnapshot } from "./src/db/snapshots";
 import { TodayScreen } from "./src/screens/TodayScreen";
 import { GridScreen } from "./src/screens/GridScreen";
 import { useAssetsStore } from "./src/store/assetsStore";
+import { getMissedMonths, autoFillMissedSnapshots } from "./src/utils/autofill";
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<"grid" | "today">("grid");
+  const [autoFillProgress, setAutoFillProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
         await initDatabase();
+
+        // Detect and fill missed months BEFORE loading the store so that
+        // TodayScreen sees updated principals and the correct hint variant
+        // on its very first render. Store load happens after auto-fill.
+        const latest = await getLatestSnapshot();
+        const missed = getMissedMonths(latest?.locked_at ?? null);
+        if (missed.length > 0) {
+          setAutoFillProgress({ current: 0, total: missed.length });
+          await autoFillMissedSnapshots(missed, (current, total) => {
+            setAutoFillProgress({ current, total });
+          });
+        }
+
         await useAssetsStore.getState().load();
         const hasAssets = useAssetsStore.getState().items.length > 0;
         setScreen(hasAssets ? "today" : "grid");
@@ -56,6 +75,12 @@ export default function App() {
                 NetWorth
               </Text>
               <ActivityIndicator color="#8E8E93" />
+              {autoFillProgress !== null && (
+                <Text style={{ color: "#8E8E93", fontSize: 13 }}>
+                  Auto-filling month {autoFillProgress.current + 1} of{" "}
+                  {autoFillProgress.total}…
+                </Text>
+              )}
             </View>
           )}
           <StatusBar style="light" />
