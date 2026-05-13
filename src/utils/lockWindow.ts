@@ -26,3 +26,9 @@ export function nextLockWindowDate(date: Date = getNow()): string {
   const first = new Date(date.getFullYear(), date.getMonth() + 1, 1);
   return first.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+export function daysUntilNextLockWindow(date: Date = getNow()): number {
+  const next = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+  const diff = next.getTime() - date.getTime();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}

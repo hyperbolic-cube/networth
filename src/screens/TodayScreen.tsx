@@ -2,6 +2,7 @@ import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   Text,
@@ -9,8 +10,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  getLatestAutoFilledSnapshot,
   getLatestSnapshot,
   getSnapshotByMonth,
+  getSnapshotCount,
   getSnapshotItems,
   lockSnapshot,
 } from "../db/snapshots";
@@ -22,6 +25,7 @@ import type {
   LiabilityMetadata,
   RealEstateMetadata,
   SimpleValueMetadata,
+  Snapshot,
 } from "../types";
 import type { ComputedItem } from "../types";
 import { EditValueSheet } from "../components/EditValueSheet";
@@ -32,6 +36,7 @@ import { getNow } from "../utils/clock";
 import {
   getCurrentMonthSnapshotDate,
   getCurrentYearMonth,
+  daysUntilNextLockWindow,
   isInLockWindow,
   nextLockWindowDate,
 } from "../utils/lockWindow";
@@ -53,6 +58,29 @@ function sortItems(items: AssetLiability[]): AssetLiability[] {
   const assets = items.filter((i) => !LIABILITY_TYPES.has(i.type));
   const liabilities = items.filter((i) => LIABILITY_TYPES.has(i.type));
   return [...assets, ...liabilities];
+}
+
+type HintVariant = "locked" | "missed" | "first_time" | "outside_window" | "none";
+
+function getHintVariant(
+  inWindow: boolean,
+  hasMonthSnapshot: boolean,
+  hasAnySnapshot: boolean,
+  latestAutoFilled: Snapshot | null,
+): HintVariant {
+  if (inWindow && !hasMonthSnapshot) return "none";       // lock button shown
+  if (hasMonthSnapshot) return "locked";                  // A: already locked
+  if (!hasAnySnapshot) return "first_time";               // C: never locked
+  if (latestAutoFilled !== null) return "missed";         // B: auto-fill exists
+  return "outside_window";                                // pre-5b.4 transitional
+}
+
+/** Extract month name from a locked_at ISO string without UTC→local date shift. */
+function monthNameFromLockedAt(lockedAt: string): string {
+  // locked_at is always "YYYY-MM-01T..." — parse components from the string
+  // directly so negative-UTC-offset timezones don't roll back to the prior month.
+  const [year, month] = lockedAt.split("T")[0].split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: "long" });
 }
 
 // ── Edit target ─────────────────────────────────────────────────────────────
@@ -134,14 +162,23 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
     };
   }, [items]);
 
-  // ── Snapshot existence check — re-runs when mock date changes ─────────
+  // ── Snapshot state — re-runs when mock date changes ───────────────────
   const [snapshotExistsForMonth, setSnapshotExistsForMonth] = useState(false);
+  const [hasAnySnapshot, setHasAnySnapshot] = useState(false);
+  const [latestAutoFilledSnapshot, setLatestAutoFilledSnapshot] = useState<Snapshot | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const yearMonth = getCurrentYearMonth(); // reads getNow() → mock-aware
-    getSnapshotByMonth(yearMonth).then((snap) => {
-      if (!cancelled) setSnapshotExistsForMonth(snap !== null);
+    Promise.all([
+      getSnapshotByMonth(yearMonth),
+      getSnapshotCount(),
+      getLatestAutoFilledSnapshot(),
+    ]).then(([monthSnap, count, autoFilled]) => {
+      if (cancelled) return;
+      setSnapshotExistsForMonth(monthSnap !== null);
+      setHasAnySnapshot(count > 0);
+      setLatestAutoFilledSnapshot(autoFilled);
     });
     return () => { cancelled = true; };
   }, [mockDate]); // re-runs on every mock date change
@@ -291,8 +328,13 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
     items.length === 0 || !rowsReady || anyLoading || anyUnavailable || locking;
 
   const inLockWindow = isInLockWindow();         // reads getNow() → mock-aware
-  const showLockButton = inLockWindow && !snapshotExistsForMonth;
   const lockMonthName = getNow().toLocaleDateString(undefined, { month: "long" });
+  const hintVariant = getHintVariant(
+    inLockWindow,
+    snapshotExistsForMonth,
+    hasAnySnapshot,
+    latestAutoFilledSnapshot,
+  );
 
   // ── Lock action ────────────────────────────────────────────────────────
   async function handleLock() {
@@ -342,7 +384,8 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
 
       tapMedium();
       notifySuccess();
-      setSnapshotExistsForMonth(true); // hide lock button immediately
+      setSnapshotExistsForMonth(true);
+      setHasAnySnapshot(true);
 
       if (__DEV__) {
         const snapshot = await getLatestSnapshot();
@@ -359,7 +402,7 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
 
   // ── Row renderer ───────────────────────────────────────────────────────
 
-  const FOOTER_HEIGHT = 190;
+  const FOOTER_HEIGHT = 210;
 
   function renderRow({ item }: { item: AssetLiability }) {
     const entry = rowMap[item.id];
@@ -504,8 +547,8 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
           </Body>
         </View>
 
-        {/* Lock button (days 1–5, no snapshot yet) or next-window hint */}
-        {showLockButton ? (
+        {/* Lock button or contextual hint */}
+        {hintVariant === "none" ? (
           <>
             {lockError && (
               <View style={{ marginTop: 12, alignItems: "center" }}>
@@ -534,6 +577,40 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
               )}
             </Pressable>
           </>
+        ) : hintVariant === "locked" ? (
+          <View style={{ marginTop: 12, alignItems: "center" }}>
+            <Caption className="text-textPrimary font-semibold">
+              <Text className="text-positive">✓ </Text>
+              {lockMonthName} snapshot locked
+            </Caption>
+            <Caption className="text-textSecondary" style={{ marginTop: 2 }}>
+              Next lock window: {nextLockWindowDate()}
+            </Caption>
+          </View>
+        ) : hintVariant === "missed" ? (
+          <Pressable
+            onPress={() => {
+              tapLight();
+              Alert.alert("Coming soon", "Snapshot editing will be available in the next update.");
+            }}
+            style={{ marginTop: 12, alignItems: "center" }}
+          >
+            <Caption className="text-textPrimary">
+              {monthNameFromLockedAt(latestAutoFilledSnapshot!.locked_at)} snapshot needs your review
+            </Caption>
+            <Caption className="text-textSecondary" style={{ marginTop: 2 }}>
+              We auto-filled it — tap to verify
+            </Caption>
+          </Pressable>
+        ) : hintVariant === "first_time" ? (
+          <View style={{ marginTop: 12, alignItems: "center" }}>
+            <Caption className="text-textPrimary">
+              Snapshots track your monthly progress
+            </Caption>
+            <Caption className="text-textSecondary" style={{ marginTop: 2 }}>
+              Your first lock window: {nextLockWindowDate()} ({daysUntilNextLockWindow()} days)
+            </Caption>
+          </View>
         ) : (
           <View style={{ marginTop: 12, alignItems: "center" }}>
             <Caption className="text-textSecondary">

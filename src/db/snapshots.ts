@@ -105,3 +105,9 @@ export async function getSnapshotCount(): Promise<number> {
   );
   return row?.count ?? 0;
 }
+
+export async function getLatestAutoFilledSnapshot(): Promise<Snapshot | null> {
+  return db.getFirstAsync<Snapshot>(
+    `SELECT * FROM snapshots WHERE is_auto_filled = 1 ORDER BY locked_at DESC LIMIT 1`,
+  );
+}
