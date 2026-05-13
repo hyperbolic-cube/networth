@@ -406,3 +406,71 @@ decrementEdits(): Promise<number>  // returns new value
 ```
 
 `decrementEdits` is atomic via SQL: `UPDATE user_settings SET value = CAST(value AS INTEGER) - 1 WHERE key = 'edits_remaining' AND CAST(value AS INTEGER) > 0`. Returns 0 if already at 0 (paywall trigger).
+
+# Block to APPEND to existing DECISIONS.md
+
+Copy-paste the entry below at the bottom of your current DECISIONS.md.
+Do not edit existing entries.
+
+---
+
+## 2026-05-13 — Monetization model: hybrid limits + Dashboard breakdown table
+
+Supersedes the placeholder "3 edit credits → paid" framing from the
+2026-05-12 "MAJOR PIVOT" entry. Final monetization design.
+
+**Free tier limits:**
+- 3 assets maximum (any combination of types)
+- 3 snapshots maximum (covers ~3 months of tracking)
+- Today screen: full functionality (add/edit assets up to 3, lock snapshots up to 3, auto-fill missed months included)
+- Dashboard: read-only for existing snapshots — full visualization (line chart, donut allocation, breakdown table, history list) but edit locked
+
+**Paywall triggers (paid tier offers all of these):**
+1. Attempt to add 4th asset → paywall
+2. Attempt to lock 4th snapshot → paywall
+3. Attempt to edit any locked snapshot → paywall
+4. Attempt to export CSV/PDF → paywall
+
+**Paid tier ($4.99/month or $29.99/year — placeholder pricing, finalize before Phase 9):**
+- Unlimited assets
+- Unlimited snapshots
+- Edit any locked snapshot anytime (no edit credit counter — unlimited)
+- Export CSV/PDF of breakdown table
+- Future post-launch: historical accuracy, multiple portfolios, custom asset types
+
+**Rationale for these limits:**
+- 3 assets free lets users test with realistic minimum portfolio (bank + broker + mortgage typical)
+- 3 snapshots free shows 3 points on chart = visible trend = "aha moment" before paywall
+- Dashboard read-only free is the strongest free value proposition — users see full visualization of their progress, paywall only when they want to extend it or modify history
+- Conversion timing: paywall hits within first few sessions for serious users (asset limit), within 3 months for casual users (snapshot limit). Not 4+ months as original "3 edit credits" design would have produced.
+
+**Edit credits counter is REMOVED.** The `user_settings('edits_remaining', '3')` row created in Phase 5b.1 is no longer the gate. Replaced by check on `getAssetsCount() < 3` or `getSnapshotCount() < 3` at action time. The user_settings table itself stays — useful for future settings — but edits_remaining row can be removed in a migration or simply ignored.
+
+**Phase order revision:**
+- Phase 6 (Amortization tests) — unchanged
+- Phase 7 (Dashboard) — expanded scope: line chart, donut, history list, **breakdown table by asset class**, delta vs previous
+- Phase 9 (Paywall + IAP) — moves up BEFORE Phase 8 (Polish). Paywall infrastructure must work before public release; polish layer cosmetics can land after.
+- Phase 8 (Polish) — last phase before release.
+
+**Breakdown table specification (Phase 7):**
+Tabular summary mirroring the user's existing Google Sheets workflow.
+Columns: Date | Stocks | Crypto | Cash | Real Estate | Vehicles | Debt
+Each row is one snapshot, sorted chronologically. Values are USD-converted
+at that snapshot's exchange rates. Liabilities (Debt column) shown as
+negative. "Bank" column also exists if any BANK assets — design decision
+Phase 7 to combine bank + cash into one column or keep separate.
+
+This table is exported via "Export CSV" button (paid feature). Same format
+as the displayed table — users can drop directly into Google Sheets / Excel
+and extend with their own columns.
+
+**App Store / Google Play in-app purchase setup:**
+- Library: RevenueCat (industry standard for cross-platform IAP, handles edge cases)
+- Sandbox testing: required before release
+- Restore purchases: must work (Apple review requirement)
+- Subscription terms screen: required by Apple guidelines
+
+**Pricing placeholder ($4.99/mo, $29.99/yr) finalization:**
+Defer to Phase 9 start. Pricing research against competitors (Monarch, Empower,
+Mint) at that time. Annual price = ~6 months equivalent = standard 50% annual
+discount pattern.

@@ -1,6 +1,8 @@
 > ⚠️ **Partially superseded.** External API choices (sections 2 and 7) and any tech stack pins have been updated. For current decisions, see DECISIONS.md. In conflicts between PRD.md and DECISIONS.md, DECISIONS.md wins.
 >
-> **Section 5 was substantially rewritten on 2026-05-12** to reflect the Today + Locked Snapshots data model pivot. The original "review and lock on the 1st" framing is gone. The 2026-05-12 entry "MAJOR PIVOT" in DECISIONS.md is the authoritative source on this change; this PRD reflects the post-pivot product.
+> **Section 5 was substantially rewritten on 2026-05-12** to reflect the Today + Locked Snapshots data model pivot. The original "review and lock on the 1st" framing is gone. The 2026-05-12 entry "MAJOR PIVOT" in DECISIONS.md is the authoritative source.
+>
+> **Section 8 was added on 2026-05-13** with the final monetization tier design. The 2026-05-13 entry "Monetization model: hybrid limits" in DECISIONS.md is the authoritative source.
 
 # Product Requirements Document (PRD) — "NetWorth: The Local-First Wealth Tracker"
 
@@ -14,6 +16,8 @@ Core Philosophy: 100% Local-First. Zero user data leaves the device. No backend 
 
 App Store Review Safety: Because the app collects no personal data and requires no account-deletion features, it will pass App Store / Google Play privacy reviews effortlessly. Do not add any SDKs that track user data (no Firebase Analytics, etc.).
 
+Target Market: USA primary, KZ secondary (dogfooding by developer). UX, currency display, and pricing tuned for US-first.
+
 ## 2. Architectural Rules & Data Flow
 
 Implicit Base Currency: The core calculation logic operates in USD by default. We do not ask the user for this during onboarding to reduce friction.
@@ -26,7 +30,7 @@ Two-State Data Model:
 - **Today**: editable live state of `assets_liabilities`. No calendar date. Always available.
 - **Locked monthly snapshots**: immutable point-in-time records in `snapshots` + `snapshot_items`. One per calendar month. `locked_at` is canonical first-of-month timestamp.
 
-Immutability: Locked snapshots are immutable to free users for the first 3 edits, after which edits become a paid feature. Auto-fill of missed months uses current prices marked `is_auto_filled = 1`.
+Immutability: Locked snapshots are immutable in free tier. Paid users can edit any snapshot. Auto-fill of missed months uses current prices marked `is_auto_filled = 1`.
 
 ## 3. Database Schema (SQLite)
 
@@ -59,10 +63,7 @@ Tables (all created/migrated by `initDatabase()`):
 
 **`api_cache`** — see DECISIONS.md.
 
-**`user_settings`** — single-row key-value store.
-
-- `key` (TEXT PK)
-- `value` (TEXT, stringified — first row: `('edits_remaining', '3')`)
+**`user_settings`** — single-row key-value store. Originally created for edit credits (Phase 5b.1), now general-purpose for future settings.
 
 ## 4. UI / UX Design System
 
@@ -76,124 +77,137 @@ Tactile Feedback: Trigger `expo-haptics` (`ImpactFeedbackStyle.Light`) on every 
 
 ## 5. Core User Journey Map (CJM) & Implementation Specs
 
-The product has **three primary surfaces**: Grid (asset creation), Today (live state), and Lock Window (monthly snapshot). Plus a Dashboard (Phase 7).
+The product has **four primary surfaces**: Grid (asset creation), Today (live state), Lock Window (monthly snapshot), and Dashboard (historical analysis + breakdown table).
 
-### Episode 1 — Portfolio Wiring (one-time, but ongoing)
+### Episode 1 — Portfolio Wiring
 
 **Screen: The Grid** ("What do you own and owe?")
 
-- Do not ask for base currency. Show a visually appealing grid of large preset tiles with emojis/icons.
+- Show a visually appealing grid of large preset tiles with emojis/icons.
 - Tiles: 🏦 Bank Accounts, 📈 Broker Accounts, ₿ Crypto, 🏘️ Real Estate, 🚘 Vehicles, 💵 Cash, 🏠 Mortgage, 💳 Credit Debt.
 - Tapping a tile opens a Bottom Sheet tailored to that asset type.
 
 **Type-specific input logic (bottom sheets):**
 
-- **Broker Accounts**: toggle Stock/Bond → ticker input → quantity input. The app fetches the current price asynchronously and shows a preview.
-- **Crypto**: same as Broker but in crypto mode (routes to Binance, ticker is symbol e.g. "BTC").
+- **Broker Accounts**: toggle Stock/Bond → ticker input → quantity input. Live price preview.
+- **Crypto**: same as Broker but in crypto mode (routes to Binance).
 - **Bank / Cash / Vehicle**: a single numeric input for "Total Balance" or "Current Value".
-- **Real Estate**: "Area (sq.m)" + "Current Market Price per sq.m". Value = Area × PricePerSqm.
-- **Liabilities (Mortgage / Credit Debt)**: three fields — Current Principal, Annual Interest Rate (%), Monthly Payment.
+- **Real Estate**: "Area (sq.m)" + "Current Market Price per sq.m".
+- **Liabilities**: three fields — Current Principal, Annual Interest Rate (%), Monthly Payment.
 
-Adding/editing/deleting an asset on the Grid modifies `assets_liabilities` directly. **There is no "draft" intermediate state** — your portfolio shape is always the live `assets_liabilities` table.
+Adding/editing/deleting an asset on the Grid modifies `assets_liabilities` directly.
 
-### Episode 2 — Today (every day the user opens the app, including the 1st)
+**Free tier limit:** Maximum 3 assets total. Attempting to add a 4th triggers the paywall (see Section 8).
+
+### Episode 2 — Today
 
 **Screen: Today** — the primary daily-use surface.
 
-- Renders all assets/liabilities from `assets_liabilities` with computed current values:
-  - Stocks/crypto: live prices via API
-  - Real Estate: `sqm × price_per_sqm` × FX
-  - Bank/Cash/Vehicle: `amount` × FX
-  - Liabilities: `principal` × FX, shown as negative
-- Sticky footer: **Assets total, Liabilities total, Net Worth (Today)**.
-- User can tap any row to edit it (changes go to `assets_liabilities` immediately, persistently). User can also tap a "+ Add" button to return to the Grid and create more assets.
-- This is the user's everyday view. They open the app, see their current net worth, optionally tweak (e.g., "Today I added $500 to savings"), and close the app. No locking required.
+- Renders all assets/liabilities from `assets_liabilities` with computed current values.
+- Sticky footer: **Assets total, Liabilities total, Net Worth**.
+- User can tap any row to edit it. Changes persist immediately to `assets_liabilities`.
+- "+ Add" navigates back to Grid.
 
 **Behavior between locks:**
-- Cash/Bank/Real Estate/Liability values are "as of last edit" — they don't change unless the user edits them.
-- Broker/Crypto/FX values are **live** — they reflect current market prices on every Today view open. (Cache TTL applies; see DECISIONS.md.)
-- Liabilities show static principal in Today view. **No mid-month cosmetic amortization preview** — amortization only fires when a new locked snapshot is created.
+- Cash/Bank/Real Estate/Liability values are "as of last edit".
+- Broker/Crypto/FX values are **live** (refreshed via API, cache TTL applies).
+- Liabilities show static principal in Today view (no mid-month amortization preview).
 
-### Episode 3 — Lock Window (days 1–5 of each month)
+### Episode 3 — Lock Window
 
-**Trigger:** when the user opens the app on day 1–5 of a calendar month (local time), AND no snapshot for the current month exists yet, the Today screen surfaces a prominent **"Lock {Month} Snapshot"** button.
+**Trigger:** when user opens app on day 1–5 of a calendar month (local time), AND no snapshot for current month exists, Today screen surfaces "Lock {Month} Snapshot" button.
+
+**Free tier limit:** Maximum 3 snapshots total. After 3, lock action triggers paywall.
 
 **On Lock:**
-1. Validate all asset prices are resolved (or manually overridden — see error states).
-2. Write a new row to `snapshots` with `locked_at = first-of-current-month`, `is_auto_filled = 0`, `total_net_worth_usd` from the computed total.
-3. Write one `snapshot_items` row per asset_liability, capturing `value_in_original_currency`, `exchange_rate_to_usd`, and `calculated_value_usd` at this instant.
-4. Apply amortization to all MORTGAGE / CREDIT_DEBT / AUTO_LOAN items: write the post-amortization principal back into `assets_liabilities.metadata.principal` (this is the new "Today" principal going forward). The snapshot captures the **pre-amortization** principal as the value-of-record for that month.
+1. Validate all asset prices resolved (or manually overridden).
+2. Write new snapshot row with `locked_at` = canonical first-of-month, `is_auto_filled = 0`.
+3. Write snapshot_items rows capturing each asset's value at this instant.
+4. Apply amortization to all liabilities: update `assets_liabilities.metadata.principal` to post-amortization value.
 
-Wait — clarification on amortization timing:
-
-**The snapshot's `value_in_original_currency` for a liability is the principal AT THE MOMENT of lock** (i.e., what the user owed at the start of that month). Then, AFTER writing the snapshot, the app updates `assets_liabilities.metadata.principal` to the post-amortization value, so the next month's Today view starts from the correctly-decremented principal.
-
-The amortization formula (PRD spec, unchanged):
-
-`Principal_new = Principal_old − (MonthlyPayment − Principal_old × (Rate / 12 / 100))`
-
-Clamped to `Math.max(0, result)` to handle final payments.
-
-**Outside the lock window (days 6–end of month):** Lock button is hidden. Show a small hint: "Next lock window: {first of next month}."
+**Outside lock window:** Lock button hidden. Adaptive hint shown based on state (already locked, missed and auto-filled, first-time user, etc.).
 
 ### Episode 4 — Auto-fill missed months
 
-**Trigger:** when the user opens the app and detects that one or more full calendar months have elapsed since the last snapshot (or since `app_first_open` if there's no snapshot yet).
+**Trigger:** when user opens app and one or more full calendar months elapsed since last snapshot.
 
 **Logic:**
-1. For each missed month, in chronological order:
-   - Create a `snapshot` row with `locked_at = first-of-that-month`, `is_auto_filled = 1`.
-   - For Bank/Cash/Real Estate/Vehicle: copy `value_in_original_currency` from the immediately-previous snapshot.
-   - For Broker/Crypto: use **current** live prices (current market price × current quantity).
-   - For FX rates: use **current** rates from the API.
-   - For Liabilities: apply one cycle of amortization to the previous snapshot's principal.
-2. After auto-fill, also update `assets_liabilities.metadata.principal` for liabilities to reflect the cumulative amortization across all missed months.
-3. **The current month's snapshot is NOT auto-filled** — if today is within days 1–5, the Lock button is shown; if today is days 6+, lock for current month is missed and will be auto-filled at the next app open after it closes (i.e., the next month).
+1. For each missed month in chronological order, create snapshot with `is_auto_filled = 1`.
+2. Bank/Cash/Real Estate/Vehicle: copy values from previous snapshot.
+3. Broker/Crypto: use **current** live prices.
+4. FX: use **current** rates.
+5. Liabilities: apply one cycle of amortization.
+6. After all missed months processed: update `assets_liabilities.metadata.principal` cumulatively.
 
-**Auto-fill on chart (Phase 7):** snapshots with `is_auto_filled = 1` are rendered with a visually distinct marker (dashed line, lighter dot, or similar). Tooltip on tap: "Auto-filled — values estimated from {creation date}; not historical."
+**Auto-fill counts toward the 3-snapshot free limit.** If user opens app after 5 months of inactivity with 0 prior snapshots, auto-fill creates none (no baseline). If user had 1 prior snapshot and 5 missed months: auto-fill creates 2 more (capped at 3 total in free tier; remaining 3 require paid).
 
-### Episode 5 — Editing locked snapshots (free: 3 credits; then paid)
+### Episode 5 — Dashboard
 
-**Trigger:** user taps "Edit" on a locked snapshot row (in the Dashboard's history view).
+**Screen: Dashboard** — the historical analysis surface.
 
-**Free tier (Phase 9+):**
-- Check `user_settings.edits_remaining`. If `> 0`: enter edit mode.
-- Edit mode is a screen similar to Today, but scoped to that month's snapshot. User can change any field, add new assets to that snapshot, delete assets from that snapshot.
-- On "Save", a single transaction overwrites the snapshot_items, recomputes `total_net_worth_usd`, and decrements `edits_remaining` by 1.
-- If `edits_remaining === 0`: show paywall ("Unlock unlimited edits — $X / mo").
+Read-only for free users. Available after first snapshot exists.
 
-**Paid tier:** edits unlimited; same flow without credit check.
+- **Hero**: Most recent snapshot net worth + delta vs previous snapshot.
+- **Line chart**: Net worth over time. X = months, Y = USD (supports negative). Auto-filled points styled distinctly (dashed segments / lighter dots) from user-locked points.
+- **Donut allocation**: Current Today allocation by asset class.
+- **Breakdown table** (NEW — mirrors user's existing Google Sheets workflow):
+  - Columns: Date | Stocks | Crypto | Cash | Real Estate | Vehicles | Debt
+  - Each row is one snapshot, aggregated by asset class.
+  - Liabilities (Debt) shown as negative.
+- **History list**: tap any row to view snapshot detail. Edit button visible but routes to paywall after 3 free edits.
+- **Export CSV** (paid feature): downloads the breakdown table in CSV format for use in Sheets/Excel.
 
-### Ghost Values (Phase 6)
-
-When the user taps any field in the lock-window edit flow OR in subsequent month locks, the numpad shows the previous snapshot's value for that field as a faded placeholder (`placeholderTextColor`). The user types over it to set the new value.
-
-Per-type ghost rules (deferred derivations in DECISIONS.md):
-- BANK, CASH, VEHICLE: previous snapshot's `value_in_original_currency`
-- MORTGAGE, CREDIT_DEBT, AUTO_LOAN: previous snapshot's `value_in_original_currency` (principal)
-- REAL_ESTATE: `previous_value / current_sqm` (impure but acceptable for MVP)
-- BROKER (quantity or price field): no ghost (snapshot stores price × qty, not separately)
-
-## 6. Dashboards & Analytics (Phase 7)
-
-Once at least one snapshot exists, a new home screen tab becomes available:
-
-- **Hero Section**: Large Net Worth number for the most recent snapshot. Below it, the Delta vs. the previous snapshot (+$X, +Y%).
-- **Chart**: A clean line chart (`react-native-gifted-charts`) showing Net Worth over time. X-axis = months; Y-axis = USD. Auto-filled snapshots rendered as dashed segments / lighter dots.
-- **Allocation**: A donut chart of asset breakdown (e.g., 50% Real Estate, 30% Broker, 20% Cash).
-- **History list**: scrollable list of all snapshots, oldest to newest, each tappable to view detail or "Edit" (if `edits_remaining > 0` or paid).
-- **Today vs. Last Snapshot**: a card comparing live Today net worth to the last locked snapshot — gives users a sense of intra-month change.
-
-## 7. AI Agent Execution Order (revised)
+## 6. AI Agent Execution Order
 
 1. Initialize Expo app with TypeScript and NativeWind. ✅
-2. Set up local SQLite database with all tables (incl. `user_settings`) and migration pattern. ✅
-3. Implement Asset Creation Grid and type-specific Bottom Sheets. ✅
-4. Implement API utility functions (anonymous fetch calls to current FX/crypto/stock endpoints per DECISIONS.md). ✅
-5. Implement Today screen + edit-via-numpad. (Phase 5b — replaces original Draft View.)
-6. Implement lock-window detection + Lock Snapshot button + post-lock amortization. (Phase 5b.)
-7. Implement auto-fill for missed months. (Phase 5b.)
-8. Implement Auto-Amortization math + unit tests. (Phase 6.)
-9. Implement Dashboard UI with charts + history list + edit flow. (Phase 7.)
-10. Implement paywall + edit-credit gating. (Phase 9.)
-11. Ensure absolute zero network requests to non-public endpoints. Prepare build for local testing.
+2. Set up local SQLite database with all tables and migration pattern. ✅
+3. Implement Asset Creation Grid and Bottom Sheets. ✅
+4. Implement API utility functions. ✅
+5. Implement Today screen + edit-via-numpad. ✅ (Phase 5b)
+6. Implement lock-window detection + Lock Snapshot button + post-lock amortization. ✅ (Phase 5b)
+7. Implement auto-fill for missed months. (Phase 5b.4 — in progress)
+8. Implement Auto-Amortization math + unit tests. (Phase 6)
+9. Implement Dashboard UI with charts + breakdown table + history list. (Phase 7)
+10. Implement paywall + IAP gating with RevenueCat. (Phase 9 — before polish)
+11. Polish (icons, splash, error boundaries, beta testing). (Phase 8)
+12. Submit to App Store / Google Play. (Phase 10)
+
+## 7. External APIs
+
+See DECISIONS.md for current endpoints and contracts. Summary:
+- FX: Fawazahmed0 Currency API (CDN-hosted, free)
+- Crypto: Binance public API (USDT pairs)
+- Stocks: Cloudflare Worker proxy → Finnhub /quote (US-listed tickers only in MVP)
+
+## 8. Monetization Tiers
+
+**Free Tier:**
+- 3 assets maximum (any combination of types)
+- 3 snapshots maximum
+- Today screen: full functionality
+- Auto-fill missed months: included
+- Dashboard: read-only access to existing snapshots, including line chart, donut, breakdown table, history list
+
+**Paid Tier ($4.99/mo or $29.99/yr — final pricing TBD before Phase 9):**
+- Unlimited assets
+- Unlimited snapshots
+- Edit any locked snapshot
+- Export CSV/PDF of breakdown table
+- Future: historical accuracy, multiple portfolios, custom asset types
+
+**Paywall triggers:**
+1. Add 4th asset → paywall
+2. Lock 4th snapshot → paywall
+3. Edit any locked snapshot → paywall
+4. Export CSV → paywall
+
+**Pricing model:**
+- Auto-renewable monthly subscription
+- Annual subscription at ~50% discount
+- No free trial in MVP (revisit post-launch based on conversion data)
+- Restore purchases supported (Apple requirement)
+
+**IAP infrastructure:**
+- RevenueCat library for cross-platform IAP
+- Sandbox testing required before release
+- Settings screen with current subscription status + manage subscription link
