@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // Phase 5b.3: lock button moves here
 // import { getLatestSnapshot, getSnapshotItems, lockSnapshot } from "../db/snapshots";
 import { useAssetsStore } from "../store/assetsStore";
+import { useClockStore } from "../store/clockStore";
 import type {
   AssetLiability,
   BrokerMetadata,
@@ -84,6 +85,7 @@ interface TodayScreenProps {
 export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
+  const mockDate = useClockStore((s) => s.mockDate);
   const sorted = sortItems(items);
 
   // ── Row state keyed by item.id ─────────────────────────────────────────
@@ -362,9 +364,21 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <View className="flex-1 bg-background">
+      {/* ── Mock date banner (DEV only, when active) ───────────────────── */}
+      {__DEV__ && mockDate !== null && (
+        <View
+          style={{ paddingTop: insets.top, backgroundColor: "#0A84FF" }}
+          className="items-center py-1.5"
+        >
+          <Text style={{ color: "#FFFFFF", fontSize: 12 }}>
+            🕐 Mock date: {mockDate.toDateString()}
+          </Text>
+        </View>
+      )}
+
       {/* Header */}
       <View
-        style={{ paddingTop: insets.top + 12 }}
+        style={{ paddingTop: __DEV__ && mockDate !== null ? 12 : insets.top + 12 }}
         className="px-6 pb-4 flex-row items-center gap-x-4"
       >
         <Pressable

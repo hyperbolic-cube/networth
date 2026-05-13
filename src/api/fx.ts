@@ -1,6 +1,7 @@
 import type { ApiResult } from "../types";
 import { TTL, withCache, writeCache } from "./cache";
 import type { FetchOutcome } from "./cache";
+import { getNowMs } from "../utils/clock";
 
 // ── Wire types (private) ───────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export async function getExchangeRate(
   // structure (early return before any I/O), not by test, until Phase 6
   // brings a test runner.
   if (currency.toUpperCase() === "USD") {
-    return { status: "fresh", value: 1, fetchedAt: Date.now() };
+    return { status: "fresh", value: 1, fetchedAt: getNowMs() };
   }
 
   const code = currency.toUpperCase();
@@ -87,7 +88,7 @@ export async function getExchangeRate(
       // Warm the entire cache: for every entry in the file, write fx:{CODE}.
       // A failed individual write is warned and skipped — the requested
       // currency's correctness is what matters.
-      const now = Date.now();
+      const now = getNowMs();
       for (const [entryCode, entryRate] of Object.entries(data.usd)) {
         if (!isFinite(entryRate) || entryRate <= 0) continue;
         try {

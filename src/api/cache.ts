@@ -8,6 +8,7 @@
 
 import { db } from "../db/client";
 import type { ApiResult } from "../types";
+import { getNowMs } from "../utils/clock";
 
 // ── TTL constants ──────────────────────────────────────────────────────────
 
@@ -72,7 +73,7 @@ export async function readCache<T>(
 export async function writeCache<T>(
   key: string,
   value: T,
-  fetchedAt: number = Date.now()
+  fetchedAt: number = getNowMs()
 ): Promise<void> {
   await db.runAsync(
     `INSERT INTO api_cache (key, value, fetched_at) VALUES (?, ?, ?)
@@ -113,7 +114,7 @@ export async function withCache<T>(args: {
 
   // 1. Cache hit within TTL → return immediately, no network.
   const cached = await readCache<T>(key);
-  if (cached !== null && Date.now() - cached.fetchedAt < ttlMs) {
+  if (cached !== null && getNowMs() - cached.fetchedAt < ttlMs) {
     return { status: "fresh", value: cached.value, fetchedAt: cached.fetchedAt };
   }
 
@@ -134,7 +135,7 @@ export async function withCache<T>(args: {
     }
 
     if (outcome.ok) {
-      const now = Date.now();
+      const now = getNowMs();
       try {
         await writeCache(key, outcome.value, now);
       } catch (err) {

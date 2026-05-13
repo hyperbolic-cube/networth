@@ -10,6 +10,7 @@ import { SimpleValueSheet } from "../components/SimpleValueSheet";
 import { Tile } from "../components/Tile";
 import { Body, Caption, Display } from "../components/Typography";
 import { useAssetsStore } from "../store/assetsStore";
+import { useClockStore } from "../store/clockStore";
 import { resetDatabase, seedDatabase } from "../db/dev";
 import { db } from "../db/client";
 import { initDatabase } from "../db/schema";
@@ -73,6 +74,8 @@ export function GridScreen({ onOpenToday }: GridScreenProps) {
     }
   }
 
+  const mockDate = useClockStore((s) => s.mockDate);
+
   const [busy, setBusy] = useState<null | "reset" | "seed" | "resetAll">(null);
   const [confirm, setConfirm] = useState<string | null>(null);
 
@@ -98,9 +101,21 @@ export function GridScreen({ onOpenToday }: GridScreenProps) {
 
   return (
     <View className="flex-1 bg-background">
+      {/* ── Mock date banner (DEV only, when active) ───────────────────── */}
+      {__DEV__ && mockDate !== null && (
+        <View
+          style={{ paddingTop: insets.top, backgroundColor: "#0A84FF" }}
+          className="items-center py-1.5"
+        >
+          <Text style={{ color: "#FFFFFF", fontSize: 12 }}>
+            🕐 Mock date: {mockDate.toDateString()}
+          </Text>
+        </View>
+      )}
+
       <ScrollView
         contentContainerStyle={{
-          paddingTop: insets.top + 16,
+          paddingTop: __DEV__ && mockDate !== null ? 16 : insets.top + 16,
           paddingBottom: items.length > 0 ? FOOTER_HEIGHT + insets.bottom + 16 : 40,
         }}
         showsVerticalScrollIndicator={false}
@@ -233,6 +248,44 @@ export function GridScreen({ onOpenToday }: GridScreenProps) {
               {confirm !== null && (
                 <Text className="text-positive text-xs text-center mt-3">{confirm}</Text>
               )}
+            </View>
+
+            {/* ── Time Travel ──────────────────────────────────────────── */}
+            <View className="mt-4 border border-accent rounded-xl p-4">
+              <Text className="text-accent font-bold text-sm mb-0.5">TIME TRAVEL</Text>
+              <Text className="text-textSecondary text-xs mb-4">
+                Mock date: {mockDate ? mockDate.toDateString() : "real time"}
+              </Text>
+              <View className="gap-y-2">
+                <View className="flex-row gap-x-2">
+                  <Pressable
+                    onPress={() => { tapLight(); useClockStore.getState().advanceMockDate(86_400_000); }}
+                    className="flex-1 bg-surfaceElevated rounded-lg py-3 items-center"
+                  >
+                    <Text className="text-textPrimary text-sm">+1 Day</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => { tapLight(); useClockStore.getState().advanceMockDate(7 * 86_400_000); }}
+                    className="flex-1 bg-surfaceElevated rounded-lg py-3 items-center"
+                  >
+                    <Text className="text-textPrimary text-sm">+1 Week</Text>
+                  </Pressable>
+                </View>
+                <View className="flex-row gap-x-2">
+                  <Pressable
+                    onPress={() => { tapLight(); useClockStore.getState().advanceMockMonth(); }}
+                    className="flex-1 bg-surfaceElevated rounded-lg py-3 items-center"
+                  >
+                    <Text className="text-textPrimary text-sm">+1 Month</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => { tapLight(); useClockStore.getState().setMockDate(null); }}
+                    className="flex-1 bg-surfaceElevated rounded-lg py-3 items-center"
+                  >
+                    <Text className="text-accent text-sm">Reset time</Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
           </View>
         )}
