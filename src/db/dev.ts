@@ -42,10 +42,14 @@ export async function seedDatabase(): Promise<void> {
   });
 
   // Liabilities use negative calculated_value_usd so they subtract from net worth.
-  await lockSnapshot([
-    { asset_liability_id: bank.id,       value_in_original_currency:  12000,    exchange_rate_to_usd: 1, calculated_value_usd:  12000 },
-    { asset_liability_id: broker.id,     value_in_original_currency:  2500,     exchange_rate_to_usd: 1, calculated_value_usd:  2500 },
-    { asset_liability_id: realEstate.id, value_in_original_currency:  280000,   exchange_rate_to_usd: 1, calculated_value_usd:  280000 },
-    { asset_liability_id: mortgage.id,   value_in_original_currency: -245000,   exchange_rate_to_usd: 1, calculated_value_usd: -245000 },
-  ]);
+  await lockSnapshot({
+    lockedAt: new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1)).toISOString(),
+    isAutoFilled: 0,
+    items: [
+      { asset_liability_id: bank.id,       value_in_original_currency:  12000,    exchange_rate_to_usd: 1, calculated_value_usd:  12000 },
+      { asset_liability_id: broker.id,     value_in_original_currency:  2500,     exchange_rate_to_usd: 1, calculated_value_usd:  2500 },
+      { asset_liability_id: realEstate.id, value_in_original_currency:  280000,   exchange_rate_to_usd: 1, calculated_value_usd:  280000 },
+      { asset_liability_id: mortgage.id,   value_in_original_currency: -245000,   exchange_rate_to_usd: 1, calculated_value_usd: -245000 },
+    ],
+  });
 }

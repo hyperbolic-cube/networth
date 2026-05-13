@@ -53,23 +53,19 @@
 - [x] Test migrations on existing devices via debug panel "Reset all (incl. prices)" — verify migrations re-run cleanly
 
 ### 5b.2 — Today screen
-- [ ] Rename `DraftScreen.tsx` → `TodayScreen.tsx`. Keep computeItems orchestration, row layout, edit-via-tap, EditValueSheet integration
-- [ ] Remove Lock button from screen body. Today screen is "always editable, no lock action".
-- [ ] Add "+ Add" CTA in header/footer that switches to Grid (so user can add new assets while in Today)
-- [ ] Update App.tsx: `useState<"grid" | "today">`, default to "today" if any assets exist, else "grid"
-- [ ] GridScreen's CTA renames from "Review Snapshot" → "View Today" (when items exist)
+- [x] Rename `DraftScreen.tsx` → `TodayScreen.tsx`. Keep computeItems orchestration, row layout, edit-via-tap, EditValueSheet integration
+- [x] Remove Lock button from screen body. Today screen is "always editable, no lock action".
+- [x] Add "+ Add" CTA in header/footer that switches to Grid (so user can add new assets while in Today)
+- [x] Update App.tsx: `useState<"grid" | "today">`, default to "today" if any assets exist, else "grid"
+- [x] GridScreen's CTA renames from "Review Snapshot" → "View Today" (when items exist)
 
 ### 5b.3 — Lock window detection + button
-- [ ] New util `src/utils/lockWindow.ts`:
-  - `isInLockWindow(date = new Date()): boolean` — returns `date.getDate() <= 5`
-  - `getCurrentMonthSnapshotDate(): string` — returns `YYYY-MM-01T00:00:00Z` for current month
-  - `nextLockWindowDate(date = new Date()): string` — for the "Next lock window: ..." hint
-- [ ] New DB helper in `src/db/snapshots.ts`: `getSnapshotByMonth(yearMonth: string): Snapshot | null` (e.g. `"2026-05"`)
-- [ ] In TodayScreen, render "Lock {Month} Snapshot" button when:
-  - `isInLockWindow()` is true AND
-  - `getSnapshotByMonth(currentYearMonth)` returns null (no snapshot exists for this month yet)
-- [ ] When lock button is hidden (outside window), show small caption: "Next lock window: {nextLockWindowDate}"
-- [ ] Lock action: call `lockSnapshot()` (existing) with `locked_at = canonicalFirstOfMonth`, `is_auto_filled = 0`. After successful lock: apply amortization to all liabilities' `assets_liabilities.metadata.principal`, navigate to Today (refreshed)
+- [x] New util `src/utils/lockWindow.ts`: `isInLockWindow`, `getCurrentMonthSnapshotDate`, `nextLockWindowDate`, `getCurrentYearMonth` — all accept optional `date` param (mock-aware via `getNow()`)
+- [x] New util `src/utils/amortization.ts`: `applyAmortization(principal, annualRatePercent, monthlyPayment)` — PRD formula, placeholder for Phase 6 validation + tests
+- [x] New DB helper in `src/db/snapshots.ts`: `getSnapshotByMonth(yearMonth: string): Snapshot | null` — `strftime('%Y-%m', locked_at) = ?`
+- [x] TodayScreen: Lock button visible when `isInLockWindow() && !snapshotExistsForMonth`; snapshot check re-runs on `mockDate` change via `useEffect([mockDate])`
+- [x] When lock button is hidden, footer shows "Next lock window: {nextLockWindowDate()}" hint
+- [x] Lock action: `lockSnapshot({ items, lockedAt: getCurrentMonthSnapshotDate(), isAutoFilled: 0 })`. Post-lock: amortize all liabilities with continue-on-fail per item. FOOTER_HEIGHT bumped to 190.
 
 ### 5b.4 — Auto-fill missed months
 - [ ] New util `src/utils/autofill.ts`:
@@ -80,9 +76,9 @@
 - [ ] After auto-fill: also update liabilities' `assets_liabilities.metadata.principal` to reflect cumulative amortization
 
 ### 5b.5 — Lock contract update
-- [ ] `lockSnapshot()` signature updated: accepts `{ items, lockedAt, isAutoFilled }` parameter. `lockedAt` is the canonical month timestamp; `isAutoFilled` is boolean.
-- [ ] Snapshots inserted with these explicit values. Existing call sites updated.
-- [ ] Snapshot table queries also expose `is_auto_filled` in the SnapshotRow type.
+- [x] `lockSnapshot()` signature updated: accepts `{ items, lockedAt, isAutoFilled }` parameter. Done in Phase 5b.3 (lockedAt is load-bearing for canonical timestamp; deferring would have required a second pass on the same function).
+- [x] Snapshots inserted with explicit `is_auto_filled` column. TodayScreen call site updated.
+- [x] `Snapshot` type already exposes `is_auto_filled: 0 | 1` from Phase 5b.1.
 
 ### 5b.6 — Smoke test
 - [ ] Reset DB, create 3 assets in Grid (Bank USD, Broker TSLA, Mortgage KZT)

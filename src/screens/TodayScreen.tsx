@@ -8,8 +8,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-// Phase 5b.3: lock button moves here
-// import { getLatestSnapshot, getSnapshotItems, lockSnapshot } from "../db/snapshots";
+import {
+  getLatestSnapshot,
+  getSnapshotByMonth,
+  getSnapshotItems,
+  lockSnapshot,
+} from "../db/snapshots";
 import { useAssetsStore } from "../store/assetsStore";
 import { useClockStore } from "../store/clockStore";
 import type {
@@ -22,10 +26,16 @@ import type {
 import type { ComputedItem } from "../types";
 import { EditValueSheet } from "../components/EditValueSheet";
 import { Body, Caption, Display } from "../components/Typography";
-// Phase 5b.3: lock button moves here
-// import { tapLight, tapMedium, notifySuccess } from "../utils/haptics";
-import { tapLight } from "../utils/haptics";
+import { tapLight, tapMedium, notifySuccess } from "../utils/haptics";
 import { computeItem, type RowStatus } from "../utils/computeItems";
+import { getNow } from "../utils/clock";
+import {
+  getCurrentMonthSnapshotDate,
+  getCurrentYearMonth,
+  isInLockWindow,
+  nextLockWindowDate,
+} from "../utils/lockWindow";
+import { applyAmortization } from "../utils/amortization";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -79,8 +89,8 @@ interface TodayScreenProps {
 
 /**
  * Today — the primary daily-use surface. Shows all assets/liabilities with
- * live computed values. Always editable; no lock action on this screen.
- * Lock button returns in Phase 5b.3 (conditional on lock window).
+ * live computed values. Always editable. Lock button is visible only during
+ * the lock window (days 1–5) when no snapshot for the current month exists yet.
  */
 export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
   const insets = useSafeAreaInsets();
@@ -123,6 +133,22 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
       cancelled = true;
     };
   }, [items]);
+
+  // ── Snapshot existence check — re-runs when mock date changes ─────────
+  const [snapshotExistsForMonth, setSnapshotExistsForMonth] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const yearMonth = getCurrentYearMonth(); // reads getNow() → mock-aware
+    getSnapshotByMonth(yearMonth).then((snap) => {
+      if (!cancelled) setSnapshotExistsForMonth(snap !== null);
+    });
+    return () => { cancelled = true; };
+  }, [mockDate]); // re-runs on every mock date change
+
+  // ── Lock state ─────────────────────────────────────────────────────────
+  const [locking, setLocking] = useState(false);
+  const [lockError, setLockError] = useState(false);
 
   // ── Edit sheet ─────────────────────────────────────────────────────────
   const editSheetRef = useRef<BottomSheetModal>(null);
@@ -254,56 +280,86 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
   }
   const netWorth = assetsTotal - liabilitiesAbs;
 
-  // Phase 5b.3: lock button moves here
-  // const rowValues = Object.values(rowMap);
-  // const rowsReady = rowValues.length === items.length;
-  // const anyLoading = rowValues.some((r) => r.status === "loading");
-  // const anyUnavailable = rowValues.some(
-  //   (r) => r.status === "unavailable_not_found" || r.status === "unavailable_offline"
-  // );
-  // const lockDisabled =
-  //   items.length === 0 || !rowsReady || anyLoading || anyUnavailable || locking;
-  //
-  // const [locking, setLocking] = useState(false);
-  // const [lockError, setLockError] = useState(false);
-  // const [lockSuccess, setLockSuccess] = useState(false);
-  //
-  // async function handleLock() {
-  //   if (lockDisabled) return;
-  //   setLocking(true);
-  //   setLockError(false);
-  //   try {
-  //     const lockItems = sorted.map((item) => {
-  //       const entry = rowMap[item.id];
-  //       return {
-  //         asset_liability_id: item.id,
-  //         value_in_original_currency: entry.computed.value_in_original_currency,
-  //         exchange_rate_to_usd: entry.computed.exchange_rate_to_usd,
-  //         calculated_value_usd: entry.computed.computed_value_usd,
-  //       };
-  //     });
-  //     await lockSnapshot(lockItems);
-  //     tapMedium();
-  //     notifySuccess();
-  //     setLockSuccess(true);
-  //     if (__DEV__) {
-  //       const snapshot = await getLatestSnapshot();
-  //       const items = snapshot ? await getSnapshotItems(snapshot.id) : [];
-  //       console.log("[Snapshot locked]", JSON.stringify({ snapshot, items }, null, 2));
-  //     }
-  //     setTimeout(() => { onOpenGrid(); }, 1500);
-  //   } catch (err) {
-  //     console.error("[TodayScreen] lockSnapshot failed:", err);
-  //     setLocking(false);
-  //     setLockError(true);
-  //   }
-  // }
+  // ── Lock window (re-evaluates on every render triggered by state change) ─
+  const rowValues = Object.values(rowMap);
+  const rowsReady = rowValues.length === items.length;
+  const anyLoading = rowValues.some((r) => r.status === "loading");
+  const anyUnavailable = rowValues.some(
+    (r) => r.status === "unavailable_not_found" || r.status === "unavailable_offline"
+  );
+  const lockDisabled =
+    items.length === 0 || !rowsReady || anyLoading || anyUnavailable || locking;
+
+  const inLockWindow = isInLockWindow();         // reads getNow() → mock-aware
+  const showLockButton = inLockWindow && !snapshotExistsForMonth;
+  const lockMonthName = getNow().toLocaleDateString(undefined, { month: "long" });
+
+  // ── Lock action ────────────────────────────────────────────────────────
+  async function handleLock() {
+    if (lockDisabled) return;
+    setLocking(true);
+    setLockError(false);
+    try {
+      const lockItems = sorted.map((item) => {
+        const entry = rowMap[item.id];
+        return {
+          asset_liability_id: item.id,
+          value_in_original_currency: entry.computed.value_in_original_currency,
+          exchange_rate_to_usd: entry.computed.exchange_rate_to_usd,
+          calculated_value_usd: entry.computed.computed_value_usd,
+        };
+      });
+
+      await lockSnapshot({
+        items: lockItems,
+        lockedAt: getCurrentMonthSnapshotDate(),
+        isAutoFilled: 0,
+      });
+
+      // Apply amortization to liabilities — continue on per-item failure so
+      // a single bad update doesn't leave siblings unamortized.
+      const store = useAssetsStore.getState();
+      for (const item of sorted) {
+        if (!LIABILITY_TYPES.has(item.type)) continue;
+        const meta = item.metadata as LiabilityMetadata;
+        try {
+          const newPrincipal = applyAmortization(
+            meta.principal,
+            meta.interest_rate,
+            meta.monthly_payment,
+          );
+          await store.update(item.id, {
+            metadata: {
+              principal: newPrincipal,
+              interest_rate: meta.interest_rate,
+              monthly_payment: meta.monthly_payment,
+            },
+          });
+        } catch (err) {
+          if (__DEV__) console.warn(`[lock] amortization update failed for ${item.id}:`, err);
+        }
+      }
+
+      tapMedium();
+      notifySuccess();
+      setSnapshotExistsForMonth(true); // hide lock button immediately
+
+      if (__DEV__) {
+        const snapshot = await getLatestSnapshot();
+        const snapItems = snapshot ? await getSnapshotItems(snapshot.id) : [];
+        console.log("[Snapshot locked]", JSON.stringify({ snapshot, items: snapItems }, null, 2));
+      }
+    } catch (err) {
+      console.error("[TodayScreen] lockSnapshot failed:", err);
+      setLockError(true);
+    } finally {
+      setLocking(false);
+    }
+  }
 
   // ── Row renderer ───────────────────────────────────────────────────────
 
-  // TODO Phase 5b.3: grow back to ~180 when Lock button conditionally returns.
-  // Long-term: replace with onLayout-based measurement (defer to later phase).
-  const FOOTER_HEIGHT = 140;
+  const FOOTER_HEIGHT = 190;
 
   function renderRow({ item }: { item: AssetLiability }) {
     const entry = rowMap[item.id];
@@ -448,39 +504,43 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
           </Body>
         </View>
 
-        {/* Phase 5b.3: lock button moves here */}
-        {/* {lockSuccess && (
-          <View className="mb-3 items-center">
-            <Caption className="text-positive font-semibold">Snapshot locked</Caption>
-          </View>
-        )}
-        {lockError && (
-          <View className="mb-2 items-center">
-            <Caption className="text-negative">Couldn't save — try again</Caption>
-          </View>
-        )}
-        {!lockSuccess && (
-          <Pressable
-            onPress={lockDisabled ? undefined : handleLock}
-            style={{
-              backgroundColor: lockDisabled ? "#1C1C1E" : "#0A84FF",
-              borderRadius: 12,
-              paddingVertical: 16,
-              alignItems: "center",
-              opacity: lockDisabled ? 0.4 : 1,
-              borderWidth: lockDisabled ? 1 : 0,
-              borderColor: "#2C2C2E",
-            }}
-          >
-            {locking ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
-                Lock Snapshot
-              </Text>
+        {/* Lock button (days 1–5, no snapshot yet) or next-window hint */}
+        {showLockButton ? (
+          <>
+            {lockError && (
+              <View style={{ marginTop: 12, alignItems: "center" }}>
+                <Caption className="text-negative">Couldn't save — try again</Caption>
+              </View>
             )}
-          </Pressable>
-        )} */}
+            <Pressable
+              onPress={lockDisabled ? undefined : handleLock}
+              style={{
+                marginTop: 12,
+                backgroundColor: lockDisabled ? "#1C1C1E" : "#0A84FF",
+                borderRadius: 12,
+                paddingVertical: 16,
+                alignItems: "center",
+                opacity: lockDisabled ? 0.4 : 1,
+                borderWidth: lockDisabled ? 1 : 0,
+                borderColor: "#2C2C2E",
+              }}
+            >
+              {locking ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
+                  Lock {lockMonthName} Snapshot
+                </Text>
+              )}
+            </Pressable>
+          </>
+        ) : (
+          <View style={{ marginTop: 12, alignItems: "center" }}>
+            <Caption className="text-textSecondary">
+              Next lock window: {nextLockWindowDate()}
+            </Caption>
+          </View>
+        )}
       </View>
 
       {/* Edit value sheet — mounted once, reused for every row */}

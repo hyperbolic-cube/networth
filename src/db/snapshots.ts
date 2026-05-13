@@ -13,16 +13,24 @@ type LockItemInput = {
 
 /**
  * Atomically writes a snapshot + all its items.
- * Liabilities should carry a negative calculated_value_usd so the sum equals net worth.
+ * lockedAt must be the canonical first-of-month ISO timestamp (e.g.
+ * "2026-06-01T00:00:00.000Z"). isAutoFilled is 0 for user-initiated locks,
+ * 1 for auto-filled missed months.
+ * Liabilities must carry a negative calculated_value_usd so the sum equals net worth.
  */
-export async function lockSnapshot(items: LockItemInput[]): Promise<Snapshot> {
+export async function lockSnapshot(params: {
+  items: LockItemInput[];
+  lockedAt: string;
+  isAutoFilled: 0 | 1;
+}): Promise<Snapshot> {
+  const { items, lockedAt, isAutoFilled } = params;
   const totalNetWorth = items.reduce((sum, item) => sum + item.calculated_value_usd, 0);
 
   const snapshot: Snapshot = {
     id: randomUUID(),
     total_net_worth_usd: totalNetWorth,
-    locked_at: new Date().toISOString(),
-    is_auto_filled: 0,
+    locked_at: lockedAt,
+    is_auto_filled: isAutoFilled,
   };
 
   const rows: SnapshotItem[] = items.map((item) => ({
@@ -33,8 +41,9 @@ export async function lockSnapshot(items: LockItemInput[]): Promise<Snapshot> {
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
-      `INSERT INTO snapshots (id, total_net_worth_usd, locked_at) VALUES (?, ?, ?)`,
-      [snapshot.id, snapshot.total_net_worth_usd, snapshot.locked_at]
+      `INSERT INTO snapshots (id, total_net_worth_usd, locked_at, is_auto_filled)
+       VALUES (?, ?, ?, ?)`,
+      [snapshot.id, snapshot.total_net_worth_usd, snapshot.locked_at, snapshot.is_auto_filled],
     );
 
     for (const row of rows) {
@@ -50,7 +59,7 @@ export async function lockSnapshot(items: LockItemInput[]): Promise<Snapshot> {
           row.value_in_original_currency,
           row.exchange_rate_to_usd,
           row.calculated_value_usd,
-        ]
+        ],
       );
     }
   });
@@ -62,26 +71,37 @@ export async function lockSnapshot(items: LockItemInput[]): Promise<Snapshot> {
 
 export async function getAllSnapshots(): Promise<Snapshot[]> {
   return db.getAllAsync<Snapshot>(
-    `SELECT * FROM snapshots ORDER BY locked_at ASC`
+    `SELECT * FROM snapshots ORDER BY locked_at ASC`,
   );
 }
 
 export async function getLatestSnapshot(): Promise<Snapshot | null> {
   return db.getFirstAsync<Snapshot>(
-    `SELECT * FROM snapshots ORDER BY locked_at DESC LIMIT 1`
+    `SELECT * FROM snapshots ORDER BY locked_at DESC LIMIT 1`,
+  );
+}
+
+/**
+ * Returns the snapshot whose locked_at falls in the given month, or null if
+ * none exists. yearMonth format: "YYYY-MM" (e.g. "2026-06").
+ */
+export async function getSnapshotByMonth(yearMonth: string): Promise<Snapshot | null> {
+  return db.getFirstAsync<Snapshot>(
+    `SELECT * FROM snapshots WHERE strftime('%Y-%m', locked_at) = ? LIMIT 1`,
+    [yearMonth],
   );
 }
 
 export async function getSnapshotItems(snapshotId: string): Promise<SnapshotItem[]> {
   return db.getAllAsync<SnapshotItem>(
     `SELECT * FROM snapshot_items WHERE snapshot_id = ?`,
-    [snapshotId]
+    [snapshotId],
   );
 }
 
 export async function getSnapshotCount(): Promise<number> {
   const row = await db.getFirstAsync<{ count: number }>(
-    `SELECT COUNT(*) as count FROM snapshots`
+    `SELECT COUNT(*) as count FROM snapshots`,
   );
   return row?.count ?? 0;
 }
