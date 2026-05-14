@@ -14,6 +14,8 @@ import { useClockStore } from "../store/clockStore";
 import { resetDatabase, seedDatabase } from "../db/dev";
 import { db } from "../db/client";
 import { initDatabase } from "../db/schema";
+import { getLatestSnapshot } from "../db/snapshots";
+import { getMissedMonths, autoFillMissedSnapshots } from "../utils/autofill";
 
 // ── GridScreen ─────────────────────────────────────────────────────────────
 //
@@ -76,7 +78,7 @@ export function GridScreen({ onOpenToday }: GridScreenProps) {
 
   const mockDate = useClockStore((s) => s.mockDate);
 
-  const [busy, setBusy] = useState<null | "reset" | "seed" | "resetAll">(null);
+  const [busy, setBusy] = useState<null | "reset" | "seed" | "resetAll" | "autofill">(null);
   const [confirm, setConfirm] = useState<string | null>(null);
 
   async function runAction(
@@ -92,6 +94,29 @@ export function GridScreen({ onOpenToday }: GridScreenProps) {
       setTimeout(() => setConfirm(null), 1000);
     } catch (err) {
       console.warn("[GridScreen debug]", err);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleForceAutofill() {
+    tapLight();
+    setBusy("autofill");
+    try {
+      const latest = await getLatestSnapshot();
+      const missed = getMissedMonths(latest?.locked_at ?? null);
+      if (missed.length === 0) {
+        setConfirm("No gaps — nothing to fill");
+      } else {
+        await autoFillMissedSnapshots(missed);
+        await useAssetsStore.getState().load();
+        setConfirm(`Filled ${missed.length} month(s)`);
+      }
+      setTimeout(() => setConfirm(null), 2000);
+    } catch (err) {
+      console.warn("[GridScreen debug] force autofill:", err);
+      setConfirm("Auto-fill failed — see logs");
+      setTimeout(() => setConfirm(null), 2000);
     } finally {
       setBusy(null);
     }
@@ -285,6 +310,17 @@ export function GridScreen({ onOpenToday }: GridScreenProps) {
                     <Text className="text-accent text-sm">Reset time</Text>
                   </Pressable>
                 </View>
+                <Pressable
+                  disabled={busy !== null}
+                  onPress={handleForceAutofill}
+                  className="bg-surfaceElevated rounded-lg py-3 items-center"
+                >
+                  {busy === "autofill" ? (
+                    <ActivityIndicator size="small" color="#8E8E93" />
+                  ) : (
+                    <Text className="text-accent text-sm">Force autofill</Text>
+                  )}
+                </Pressable>
               </View>
             </View>
           </View>

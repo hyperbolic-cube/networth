@@ -22,6 +22,7 @@ import { TodayScreen } from "./src/screens/TodayScreen";
 import { GridScreen } from "./src/screens/GridScreen";
 import { useAssetsStore } from "./src/store/assetsStore";
 import { getMissedMonths, autoFillMissedSnapshots } from "./src/utils/autofill";
+import { initClock } from "./src/utils/clock";
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -35,6 +36,7 @@ export default function App() {
     (async () => {
       try {
         await initDatabase();
+        await initClock(); // reads persisted mock date → sets _mockDate + Zustand store
 
         // Detect and fill missed months BEFORE loading the store so that
         // TodayScreen sees updated principals and the correct hint variant

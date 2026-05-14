@@ -22,6 +22,10 @@ export async function getEditsRemaining(): Promise<number> {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+export async function deleteSetting(key: string): Promise<void> {
+  await db.runAsync(`DELETE FROM user_settings WHERE key = ?`, [key]);
+}
+
 // Atomically decrements edits_remaining if > 0. Returns the new value.
 // The WHERE guard prevents going below 0; if already 0 the UPDATE is a no-op.
 export async function decrementEdits(): Promise<number> {
