@@ -14,11 +14,13 @@ import { Tile } from "../components/Tile";
 import { Body, Caption, Display } from "../components/Typography";
 import { useAssetsStore } from "../store/assetsStore";
 import { useClockStore } from "../store/clockStore";
+import { createAsset, updateAsset } from "../db/assets";
 import { resetDatabase, seedDatabase } from "../db/dev";
 import { db } from "../db/client";
 import { initDatabase } from "../db/schema";
-import { getLatestSnapshot } from "../db/snapshots";
+import { getLatestSnapshot, lockSnapshot } from "../db/snapshots";
 import { getMissedMonths, autoFillMissedSnapshots } from "../utils/autofill";
+import { applyAmortization } from "../utils/amortization";
 
 /** The 8 tiles shown in the grid, in order. No AUTO_LOAN tile (DECISIONS.md). */
 const TILES = [
@@ -64,7 +66,7 @@ export function GridScreen() {
 
   const mockDate = useClockStore((s) => s.mockDate);
 
-  const [busy, setBusy] = useState<null | "reset" | "seed" | "resetAll" | "autofill">(null);
+  const [busy, setBusy] = useState<null | "reset" | "seed" | "resetAll" | "autofill" | "seedDashboard">(null);
   const [confirm, setConfirm] = useState<string | null>(null);
 
   async function runAction(
@@ -102,6 +104,93 @@ export function GridScreen() {
     } catch (err) {
       console.warn("[GridScreen debug] force autofill:", err);
       setConfirm("Auto-fill failed — see logs");
+      setTimeout(() => setConfirm(null), 2000);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSeedDashboard() {
+    tapLight();
+    setBusy("seedDashboard");
+    try {
+      await resetDatabase();
+
+      const bank = await createAsset({
+        type: "BANK",
+        name: "Demo Bank",
+        currency: "USD",
+        metadata: { amount: 10000 },
+      });
+      const broker = await createAsset({
+        type: "BROKER",
+        name: "TSLA",
+        currency: "USD",
+        metadata: { ticker: "TSLA", quantity: 20, instrumentType: "STOCK" },
+      });
+      const mortgage = await createAsset({
+        type: "MORTGAGE",
+        name: "Demo Mortgage",
+        currency: "KZT",
+        metadata: { principal: 50_000_000, interest_rate: 12, monthly_payment: 700_000 },
+      });
+
+      // Fixed demo prices per month — no live API calls
+      const LOCK_DATES = [
+        "2026-01-01T00:00:00.000Z",
+        "2026-02-01T00:00:00.000Z",
+        "2026-03-01T00:00:00.000Z",
+        "2026-04-01T00:00:00.000Z",
+        "2026-05-01T00:00:00.000Z",
+      ];
+      const TSLA_PRICES_USD = [250, 270, 255, 290, 310];
+      const KZT_RATE = 1 / 450;
+      let principal = 50_000_000;
+
+      for (let i = 0; i < LOCK_DATES.length; i++) {
+        useClockStore.getState().setMockDate(new Date(LOCK_DATES[i]));
+        const tslaTotal = TSLA_PRICES_USD[i] * 20;
+        await lockSnapshot({
+          items: [
+            {
+              asset_liability_id: bank.id,
+              value_in_original_currency: 10_000,
+              exchange_rate_to_usd: 1,
+              calculated_value_usd: 10_000,
+            },
+            {
+              asset_liability_id: broker.id,
+              value_in_original_currency: tslaTotal,
+              exchange_rate_to_usd: 1,
+              calculated_value_usd: tslaTotal,
+            },
+            {
+              asset_liability_id: mortgage.id,
+              value_in_original_currency: principal,
+              exchange_rate_to_usd: KZT_RATE,
+              calculated_value_usd: -(principal * KZT_RATE),
+            },
+          ],
+          lockedAt: LOCK_DATES[i],
+          isAutoFilled: 0,
+        });
+        principal = applyAmortization(principal, 12, 700_000);
+      }
+
+      // Persist post-amortization principal to assets_liabilities
+      await updateAsset(mortgage.id, {
+        metadata: { principal, interest_rate: 12, monthly_payment: 700_000 },
+      });
+
+      // Land on May 14 — outside lock window, Dashboard boots with 5 snapshots
+      useClockStore.getState().setMockDate(new Date(2026, 4, 14));
+      await useAssetsStore.getState().load();
+
+      setConfirm("Dashboard demo ready — 5 snapshots");
+      setTimeout(() => setConfirm(null), 3000);
+    } catch (err) {
+      console.warn("[GridScreen debug] seed dashboard:", err);
+      setConfirm("Seed failed — see logs");
       setTimeout(() => setConfirm(null), 2000);
     } finally {
       setBusy(null);
@@ -305,6 +394,17 @@ export function GridScreen() {
                     <ActivityIndicator size="small" color="#8E8E93" />
                   ) : (
                     <Text className="text-accent text-sm">Force autofill</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  disabled={busy !== null}
+                  onPress={handleSeedDashboard}
+                  className="bg-surfaceElevated rounded-lg py-3 items-center"
+                >
+                  {busy === "seedDashboard" ? (
+                    <ActivityIndicator size="small" color="#8E8E93" />
+                  ) : (
+                    <Text className="text-accent text-sm">Seed Dashboard demo</Text>
                   )}
                 </Pressable>
               </View>
