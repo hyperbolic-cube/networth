@@ -63,28 +63,28 @@
 - [x] Pure helper functions getHintVariant + monthNameFromLockedAt (timezone-safe string parsing)
 
 ### 5b.4 — Auto-fill missed months
-- [ ] New util `src/utils/autofill.ts`: getMissedMonths(lastSnapshotDate, today) and autoFillMissedSnapshots(missedMonths, onProgress)
-- [ ] New DB helper getSnapshotBefore in src/db/snapshots.ts
-- [ ] App.tsx init sequence: initDatabase → getLatestSnapshot → if missed > 0, run autofill with progress UI → load store → ready
-- [ ] Per-type buildLockItem logic: BANK/CASH/VEHICLE/REAL_ESTATE freeze from prev snapshot with current FX; BROKER live prices; LIABILITY cumulative amortization
-- [ ] Idempotent: partial failures recover on next app open via getMissedMonths re-detection
-- [ ] Smoke test with time travel: 3 missed months, verify cumulative amortization, verify hint variant 'missed'
+- [x] New util `src/utils/autofill.ts`: getMissedMonths(lastSnapshotDate, today) and autoFillMissedSnapshots(missedMonths, onProgress)
+- [x] New DB helper getSnapshotBefore in src/db/snapshots.ts
+- [x] App.tsx init sequence: initDatabase → getLatestSnapshot → if missed > 0, run autofill with progress UI → load store → ready
+- [x] Per-type buildLockItem logic: BANK/CASH/VEHICLE/REAL_ESTATE freeze from prev snapshot with current FX; BROKER live prices; LIABILITY cumulative amortization
+- [x] Idempotent: partial failures recover on next app open via getMissedMonths re-detection
+- [x] Smoke test with time travel: 3 missed months, verify cumulative amortization, verify hint variant 'missed'
 
 ### 5b.5 — Lock contract update ✅ (done in 5b.3)
 - [x] lockSnapshot signature: `{ items, lockedAt, isAutoFilled }` parameter
 
 ### 5b.6 — Final Phase 5b smoke test
-- [ ] Reset DB, create 3 assets in Grid (Bank USD, Broker TSLA, Mortgage KZT)
-- [ ] Verify Today screen renders with computed values + footer math correct
-- [ ] Time-travel through 3 missed months, verify auto-fill correct, Mortgage principal cumulatively amortized
-- [ ] Verify all 5 hint variants visible in their respective conditions
+- [x] Reset DB, create 3 assets in Grid (Bank USD, Broker TSLA, Mortgage KZT)
+- [x] Verify Today screen renders with computed values + footer math correct
+- [x] Time-travel through 3 missed months, verify auto-fill correct, Mortgage principal cumulatively amortized
+- [x] Verify all 5 hint variants visible in their respective conditions
 
 ## Phase 6: Auto-Amortization Math
-- [ ] Replace placeholder applyAmortization with PRD-spec implementation: validation (principal ≤ 0 → 0, rate < 0 → throw, payment ≤ 0 → unchanged, clamp to ≥ 0)
-- [ ] Install Jest + jest-expo + @types/jest as devDependencies
-- [ ] Configure jest preset in package.json
-- [ ] Unit tests in src/utils/__tests__/amortization.test.ts — 5 hand-calculated cases (normal, final-payment clamp, interest-only identity, zero-rate, already-paid)
-- [ ] Verify applyAmortization integration in lock + autofill flows unchanged
+- [x] Replace placeholder applyAmortization with PRD-spec implementation: validation (principal ≤ 0 → 0, rate < 0 → throw, payment ≤ 0 → unchanged, clamp to ≥ 0)
+- [x] Install Jest + jest-expo + @types/jest as devDependencies (jest@29.7.0, jest-expo@54.0.0, @types/jest@29.5.14)
+- [x] Configure jest preset in package.json (+ "test": "jest" script)
+- [x] Unit tests in src/utils/__tests__/amortization.test.ts — 13 tests: 5 math cases + 6 validation + 2 integration call-site smoke tests. All pass. npx tsc --noEmit clean.
+- [x] Verify applyAmortization integration in lock + autofill flows unchanged — same signature, call sites untouched
 
 ## Phase 7: Dashboard + Breakdown Table
 
