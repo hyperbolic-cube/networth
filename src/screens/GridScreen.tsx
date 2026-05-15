@@ -1,8 +1,11 @@
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tapLight } from "../utils/haptics";
+import type { RootStackParamList } from "../types/navigation";
 import { BrokerSheet } from "../components/BrokerSheet";
 import { LiabilitySheet } from "../components/LiabilitySheet";
 import { RealEstateSheet } from "../components/RealEstateSheet";
@@ -16,16 +19,6 @@ import { db } from "../db/client";
 import { initDatabase } from "../db/schema";
 import { getLatestSnapshot } from "../db/snapshots";
 import { getMissedMonths, autoFillMissedSnapshots } from "../utils/autofill";
-
-// ── GridScreen ─────────────────────────────────────────────────────────────
-//
-// Phase 4: single screen, no router. Navigation deferral plan:
-//   Phase 4 — GridScreen only, no navigation library.
-//   Phase 5b — useState<"grid" | "today"> to switch between Grid and Today;
-//               still no router library.
-//   Phase 7 — add @react-navigation/native-stack when Dashboard ↔ history
-//              back-navigation actually needs a stack.
-//   Never add expo-router at any phase.
 
 /** The 8 tiles shown in the grid, in order. No AUTO_LOAN tile (DECISIONS.md). */
 const TILES = [
@@ -41,15 +34,8 @@ const TILES = [
 
 type TileKey = (typeof TILES)[number]["key"];
 
-interface GridScreenProps {
-  onOpenToday: () => void;
-}
-
-/**
- * The Grid screen — first screen the user sees.
- * Renders 8 preset tiles that open type-specific bottom-sheet modals.
- */
-export function GridScreen({ onOpenToday }: GridScreenProps) {
+export function GridScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
 
@@ -346,7 +332,7 @@ export function GridScreen({ onOpenToday }: GridScreenProps) {
           <Pressable
             onPress={() => {
               tapLight();
-              onOpenToday();
+              navigation.navigate("Today");
             }}
             style={{
               backgroundColor: "#0A84FF",

@@ -1,3 +1,5 @@
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -41,6 +43,7 @@ import {
   nextLockWindowDate,
 } from "../utils/lockWindow";
 import { applyAmortization } from "../utils/amortization";
+import type { RootStackParamList } from "../types/navigation";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -111,16 +114,8 @@ type RowEntry = { computed: ComputedItem; status: RowStatus };
 
 // ── TodayScreen ────────────────────────────────────────────────────────────
 
-interface TodayScreenProps {
-  onOpenGrid: () => void;
-}
-
-/**
- * Today — the primary daily-use surface. Shows all assets/liabilities with
- * live computed values. Always editable. Lock button is visible only during
- * the lock window (days 1–5) when no snapshot for the current month exists yet.
- */
-export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
+export function TodayScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
   const mockDate = useClockStore((s) => s.mockDate);
@@ -483,7 +478,7 @@ export function TodayScreen({ onOpenGrid }: TodayScreenProps) {
         <Pressable
           onPress={() => {
             tapLight();
-            onOpenGrid();
+            navigation.navigate("Grid");
           }}
           hitSlop={12}
         >
