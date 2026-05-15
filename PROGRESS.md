@@ -88,16 +88,29 @@
 
 ## Phase 7: Dashboard + Breakdown Table
 
-### 7.1 — Navigation upgrade
-- [ ] Install @react-navigation/native-stack + react-native-screens (per DECISIONS.md nav plan)
-- [ ] Replace useState<"grid" | "today"> with NavigationContainer + Stack.Navigator
-- [ ] Three screens registered: GridScreen, TodayScreen, DashboardScreen
-- [ ] Header bar styling matches dark mode
+### 7a — Navigation upgrade + Dashboard stub ✅
+- [x] Install @react-navigation/native@^7.2.4, @react-navigation/native-stack@^7.15.1, react-native-screens@~4.16.0
+- [x] New src/types/navigation.ts — RootStackParamList + per-screen NativeStackScreenProps types
+- [x] Replace useState<"grid" | "today"> with NavigationContainer + Stack.Navigator (3 screens: Grid, Today, Dashboard)
+- [x] Initial route logic: no assets → Grid; assets + no snapshots → Today; assets + snapshots → Dashboard
+- [x] All headers hidden (headerShown: false) — screens own their chrome
+- [x] GridScreen: removed onOpenToday prop, uses useNavigation().navigate("Today")
+- [x] TodayScreen: removed onOpenGrid prop, uses useNavigation().navigate("Grid")
+- [x] New DashboardScreen.tsx stub: "Dashboard — coming in Phase 7b" + "Back to Today" via navigate("Today")
+- [x] npx tsc --noEmit clean. Commit: 0569272
 
-### 7.2 — Dashboard layout
-- [ ] DashboardScreen.tsx as default home screen when 1+ snapshots exist
-- [ ] Hero section: most recent snapshot net worth (large number, negative-aware color), delta vs previous snapshot ("+$X (+Y%)")
-- [ ] Line chart (react-native-gifted-charts): X = months YYYY-MM, Y = net worth USD (supports negative values). Auto-filled points (is_auto_filled=1) shown with dashed segments / lighter dots; user-locked points solid
+### 7.1 — Navigation upgrade
+- [x] (completed in Phase 7a above)
+
+### 7b.1 — Dashboard Foundation + Hero + Line Chart ✅
+- [x] DashboardScreen replaces stub with scrollable layout: header (Dashboard title + Today link), Hero, Line chart, dashed placeholders for Donut (7b.2) and Breakdown (7b.3)
+- [x] Hero: 56pt white net-worth number (red only when net debt), delta pill ("+$X (+Y%)") in positive/negative/secondary color vs previous snapshot, "As of {Month Day, Year}" caption, "—" + "First snapshot" when only 1 snapshot exists
+- [x] Line chart (gifted-charts): per-point dataPointColor/Radius (auto-filled = #0A84FF 50% alpha, radius 3; locked = solid #0A84FF, radius 5); per-segment lineSegments with strokeDashArray [4,4] when either endpoint auto-filled; pointerConfig tooltip showing date + value + "· auto" tag; y-axis labels hidden on screens <380pt (iPhone SE family); negative-aware via mostNegativeValue + noOfSectionsBelowXAxis
+- [x] Empty state (0 snapshots): "Lock your first snapshot to see your wealth trend" + "Go to Today" Pressable
+- [x] Subscribes to useClockStore.mockDate; refetches getAllSnapshots on time-travel changes; loading spinner while null
+- [x] No new DB helpers needed — getAllSnapshots() already orders by locked_at ASC; previous = snapshots[length-2]
+
+### 7.2 — Dashboard layout (placeholder — superseded by 7b sub-phases)
 
 ### 7.3 — Allocation donut
 - [ ] Donut chart of current Today allocation by asset class
