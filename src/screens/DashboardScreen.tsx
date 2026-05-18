@@ -921,6 +921,60 @@ function UpgradeRow({ totalSnapshots }: { totalSnapshots: number }) {
   );
 }
 
+function BreakdownDateHeaderCell() {
+  return (
+    <View
+      style={{
+        height: TABLE_HEADER_HEIGHT,
+        width: DATE_COL_WIDTH,
+        paddingHorizontal: TABLE_CELL_PADDING_H,
+        justifyContent: "center",
+        borderBottomWidth: 1,
+        borderBottomColor: SURFACE_ELEVATED,
+      }}
+    >
+      <Text
+        style={{
+          color: TEXT_SECONDARY,
+          fontSize: 11,
+          fontWeight: "600",
+          letterSpacing: 0.6,
+          textTransform: "uppercase",
+        }}
+        numberOfLines={1}
+      >
+        Date
+      </Text>
+    </View>
+  );
+}
+
+function BreakdownDateRow({
+  row,
+  isLast,
+  onPress,
+}: {
+  row: BreakdownRow;
+  isLast: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        height: TABLE_ROW_HEIGHT,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: SURFACE_ELEVATED,
+        opacity: pressed ? 0.55 : 1,
+      })}
+    >
+      <BreakdownDateCell row={row} />
+    </Pressable>
+  );
+}
+
 function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const mockDate = useClockStore((s) => s.mockDate);
@@ -982,61 +1036,19 @@ function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
           borderRadius: 16,
           backgroundColor: SURFACE,
           overflow: "hidden",
-          flexDirection: "row",
         }}
       >
-        {/* Sticky left column: date labels (header spacer + per-row date cells) */}
-        <View>
-          <View
-            style={{
-              height: TABLE_HEADER_HEIGHT,
-              width: DATE_COL_WIDTH,
-              borderBottomWidth: 1,
-              borderBottomColor: SURFACE_ELEVATED,
-            }}
-          />
-          {isCapped && (
-            <View
-              style={{
-                height: TABLE_ROW_HEIGHT,
-                width: DATE_COL_WIDTH,
-                borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: SURFACE_ELEVATED,
-              }}
-            />
-          )}
-          {visibleRows.map((row) => (
-            <Pressable
-              key={row.snapshot.id}
-              onPress={() => {
-                tapLight();
-                navigation.navigate("SnapshotDetail", { snapshotId: row.snapshot.id });
-              }}
-              style={({ pressed }) => ({
-                height: TABLE_ROW_HEIGHT,
-                borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: SURFACE_ELEVATED,
-                opacity: pressed ? 0.55 : 1,
-              })}
-            >
-              <BreakdownDateCell row={row} />
-            </Pressable>
-          ))}
-        </View>
+        {/* Upgrade prompt spans the full table width — outside the row
+            container so sticky+scrollable halves stay symmetric. */}
+        {isCapped && <UpgradeRow totalSnapshots={rows.length} />}
 
-        {/* Scrollable right pane: header + value cells */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flex: 1 }}
-        >
+        <View style={{ flexDirection: "row" }}>
+          {/* Sticky left column: Date header + per-row date cells. Mirrors
+              the right side's row count and heights exactly. */}
           <View>
-            <BreakdownHeaderRow />
-            {isCapped && (
-              <UpgradeRow totalSnapshots={rows.length} />
-            )}
+            <BreakdownDateHeaderCell />
             {visibleRows.map((row, i) => (
-              <BreakdownBodyRow
+              <BreakdownDateRow
                 key={row.snapshot.id}
                 row={row}
                 isLast={i === visibleRows.length - 1}
@@ -1047,7 +1059,29 @@ function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
               />
             ))}
           </View>
-        </ScrollView>
+
+          {/* Scrollable right pane: class header + value cells */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flex: 1 }}
+          >
+            <View>
+              <BreakdownHeaderRow />
+              {visibleRows.map((row, i) => (
+                <BreakdownBodyRow
+                  key={row.snapshot.id}
+                  row={row}
+                  isLast={i === visibleRows.length - 1}
+                  onPress={() => {
+                    tapLight();
+                    navigation.navigate("SnapshotDetail", { snapshotId: row.snapshot.id });
+                  }}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        </View>
       </View>
     </View>
   );

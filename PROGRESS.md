@@ -139,6 +139,7 @@
 ### 7b.3 — Breakdown table by month + SnapshotDetail stub ✅
 - [x] New util `aggregateSnapshotByClass(snapshotId, assetsById)` in src/utils/assetClass.ts — reads snapshot_items, classifies via shared map (no N+1), sign-based fallback for deleted assets (dev warn)
 - [x] BreakdownTableSection inside DashboardScreen: sticky 88pt Date column + horizontally-scrollable 84pt class columns (Stocks | Crypto | Cash | Real Est. | Vehicles | Debt). Fix: Date rendered ONCE in the sticky left column (the prior layout duplicated it inside each scrollable row); widened from 72→88pt so "··· Jun '26" doesn't truncate; date format uses an apostrophe ("Mar '26") to disambiguate from "March 26th"
+- [x] Row alignment fix: upgrade prompt promoted to full-width banner above the columns (was inside the scrollable side with a fragile empty mirror spacer on the sticky side); sticky column now renders a real "DATE" header instead of an empty spacer; new BreakdownDateRow component mirrors BreakdownBodyRow's flex/centering exactly so date text and value text share the same vertical baseline within each row. Symmetric row counts on both halves guarantee alignment by construction.
 - [x] Oldest-first ordering (matches the chart's left=old→right=new visual flow)
 - [x] Compact number formatting ($450 / $12k / $1.2M) via formatCompactMoney
 - [x] Empty cells render as em dash (—) not "$0"
