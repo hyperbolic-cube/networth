@@ -138,7 +138,7 @@
 
 ### 7b.3 — Breakdown table by month + SnapshotDetail stub ✅
 - [x] New util `aggregateSnapshotByClass(snapshotId, assetsById)` in src/utils/assetClass.ts — reads snapshot_items, classifies via shared map (no N+1), sign-based fallback for deleted assets (dev warn)
-- [x] BreakdownTableSection inside DashboardScreen: sticky 72pt Date column + horizontally-scrollable 84pt class columns (Stocks | Crypto | Cash | Real Est. | Vehicles | Debt)
+- [x] BreakdownTableSection inside DashboardScreen: sticky 88pt Date column + horizontally-scrollable 84pt class columns (Stocks | Crypto | Cash | Real Est. | Vehicles | Debt). Fix: Date rendered ONCE in the sticky left column (the prior layout duplicated it inside each scrollable row); widened from 72→88pt so "··· Jun '26" doesn't truncate; date format uses an apostrophe ("Mar '26") to disambiguate from "March 26th"
 - [x] Oldest-first ordering (matches the chart's left=old→right=new visual flow)
 - [x] Compact number formatting ($450 / $12k / $1.2M) via formatCompactMoney
 - [x] Empty cells render as em dash (—) not "$0"

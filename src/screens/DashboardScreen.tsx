@@ -721,7 +721,7 @@ function DebtBar({ usd }: { usd: number }) {
 // guard; the trim semantics (most-recent N) stay the same.
 const BREAKDOWN_FREE_LIMIT = 3;
 
-const DATE_COL_WIDTH = 72;
+const DATE_COL_WIDTH = 88;
 const VALUE_COL_WIDTH = 84;
 const TABLE_ROW_HEIGHT = 48;
 const TABLE_HEADER_HEIGHT = 36;
@@ -759,13 +759,16 @@ function formatCompactMoney(n: number): string {
   return `${sign}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
 }
 
-/** "May '26" — short month + 2-digit year, timezone-safe like monthShortLabel. */
+/** "May '26" — short month + apostrophe + 2-digit year. Apostrophe disambiguates
+ * year-of-decade from day-of-month (so "Mar '26" doesn't read as "March 26th").
+ * Timezone-safe like monthShortLabel. */
 function monthShortYearLabel(lockedAt: string): string {
   const [year, month] = lockedAt.split("T")[0].split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
+  const monthShort = new Date(year, month - 1, 1).toLocaleDateString(undefined, {
     month: "short",
-    year: "2-digit",
   });
+  const yy = String(year).slice(-2);
+  return `${monthShort} '${yy}`;
 }
 
 type BreakdownRow = { snapshot: Snapshot; totals: ClassTotals };
@@ -885,7 +888,6 @@ function BreakdownBodyRow({
         opacity: pressed ? 0.55 : 1,
       })}
     >
-      <BreakdownDateCell row={row} />
       <BreakdownValueCells row={row} />
     </Pressable>
   );
