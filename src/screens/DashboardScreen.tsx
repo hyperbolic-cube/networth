@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LineChart, PieChart } from "react-native-gifted-charts";
 import type { LineSegment, lineDataItem } from "react-native-gifted-charts";
 import { Body, Caption, Display } from "../components/Typography";
+import { SectionHeader } from "../components/SectionHeader";
 import { getAllAssets } from "../db/assets";
 import { getAllSnapshots } from "../db/snapshots";
 import { useClockStore } from "../store/clockStore";
@@ -27,6 +28,7 @@ import {
   type AssetClass,
   type ClassTotals,
 } from "../utils/assetClass";
+import { formatHeroMoney, monthDayYearLabel } from "../utils/format";
 import { tapLight } from "../utils/haptics";
 
 // ── Theme constants ───────────────────────────────────────────────────────
@@ -46,13 +48,6 @@ const HORIZONTAL_PADDING = 24;
 const HIDE_Y_LABELS_BELOW = 380;
 
 // ── Formatting helpers ─────────────────────────────────────────────────────
-
-/** Whole-dollar format with thousand separators. Negative renders as `−$1,234`. */
-function formatHeroMoney(n: number): string {
-  const abs = Math.abs(Math.round(n));
-  const formatted = "$" + abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
-  return n < 0 ? "−" + formatted : formatted;
-}
 
 /** Signed delta: `+$1,234` / `−$1,234` / `$0`. */
 function formatDelta(n: number): string {
@@ -87,16 +82,6 @@ function monthShortLabel(lockedAt: string): string {
   return new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: "short" });
 }
 
-/** Long date label like "May 1, 2026", timezone-safe (see monthShortLabel). */
-function monthDayYearLabel(lockedAt: string): string {
-  const [year, month, day] = lockedAt.split("T")[0].split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
-
 /** Compact USD for y-axis labels: 1.2k, 50k, 1.2M. */
 function abbreviateUsd(label: string): string {
   const n = Number(label);
@@ -110,26 +95,6 @@ function abbreviateUsd(label: string): string {
     return `${sign}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
   }
   return `${sign}$${abs.toFixed(0)}`;
-}
-
-// ── Section header (Apple Health style) ───────────────────────────────────
-
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View style={{ paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 12 }}>
-      <Text
-        style={{
-          color: TEXT_SECONDARY,
-          fontSize: 13,
-          fontWeight: "600",
-          letterSpacing: 0.8,
-          textTransform: "uppercase",
-        }}
-      >
-        {title}
-      </Text>
-    </View>
-  );
 }
 
 // ── Hero ───────────────────────────────────────────────────────────────────

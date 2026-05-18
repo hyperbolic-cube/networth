@@ -123,3 +123,10 @@ export async function getSnapshotBefore(lockedAt: string): Promise<Snapshot | nu
     [lockedAt],
   );
 }
+
+export async function getSnapshotById(id: string): Promise<Snapshot | null> {
+  return db.getFirstAsync<Snapshot>(
+    `SELECT * FROM snapshots WHERE id = ? LIMIT 1`,
+    [id],
+  );
+}
