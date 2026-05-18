@@ -225,6 +225,10 @@ type EnrichedDataItem = lineDataItem & {
   snapshotId: string;
   isAutoFilled: 0 | 1;
   lockedAt: string;
+  // The true net-worth dollars. For the all-negative branch we shift `value`
+  // into positive space to dodge a gifted-charts negative-axis bug (see below);
+  // `originalValue` preserves the unshifted dollars for the tooltip.
+  originalValue: number;
 };
 
 function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
@@ -239,16 +243,6 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
     snapshots.length > 1
       ? Math.max(40, Math.floor(availableForSpacing / (snapshots.length - 1)))
       : 40;
-
-  const data: EnrichedDataItem[] = snapshots.map((s) => ({
-    value: s.total_net_worth_usd,
-    label: monthShortLabel(s.locked_at),
-    dataPointColor: s.is_auto_filled ? ACCENT_FADED : ACCENT,
-    dataPointRadius: s.is_auto_filled ? 3 : 5,
-    snapshotId: s.id,
-    isAutoFilled: s.is_auto_filled,
-    lockedAt: s.locked_at,
-  }));
 
   // A segment is dashed iff either endpoint is auto-filled.
   const lineSegments: LineSegment[] = [];
@@ -272,34 +266,36 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
 
   const hasAutoFilled = snapshots.some((s) => s.is_auto_filled === 1);
 
-  // gifted-charts is anchored at y=0 and computes stepValue from
-  // maxValue/noOfSections. If we leave maxValue at 0 (or auto) when data is
-  // all-negative, stepValue divides to 0 and the lib falls back to a default
-  // step (~2.5), producing axis labels like $0/$3/$5/$8/$10 with no visible
-  // line. Branch on data sign and pass an explicit stepValue per side.
+  // gifted-charts' negative-axis code path is broken: it gates the negative
+  // branch of getY() on `stepValue !== negativeStepValue`, and otherwise falls
+  // through to the positive formula which divides by maxValue=0. Net effect:
+  // dots render millions of pixels offscreen. Workaround: when all data is
+  // negative, shift every value by `yOffset` so the chart renders as
+  // positive-only (the well-tested code path), and subtract `yOffset` back in
+  // formatYLabel so the axis still reads as negative dollars. The mixed-sign
+  // branch happens to work natively and is left untouched.
   let yAxisProps: {
     maxValue: number;
     mostNegativeValue?: number;
     noOfSections: number;
     stepValue: number;
     noOfSectionsBelowXAxis?: number;
-    stepValueNegative?: number;
   };
+  let yOffset = 0;
   if (minVal >= 0) {
     const top = maxVal + pad;
     yAxisProps = { maxValue: top, noOfSections: 4, stepValue: top / 4 };
   } else if (maxVal <= 0) {
     const bottom = minVal - pad;
-    const step = Math.abs(bottom) / 4;
-    yAxisProps = {
-      maxValue: 0,
-      mostNegativeValue: bottom,
-      noOfSections: 1,
-      stepValue: step,
-      noOfSectionsBelowXAxis: 4,
-      stepValueNegative: step,
-    };
+    yOffset = Math.abs(bottom);
+    const top = maxVal + pad + yOffset;
+    yAxisProps = { maxValue: top, noOfSections: 4, stepValue: top / 4 };
   } else {
+    // Mixed sign. Intentionally omit negativeStepValue: when it equals
+    // stepValue (the default), gifted-charts routes negative values through
+    // its positive-axis formula extended past zero, which happens to render
+    // correctly across an x-axis. Supplying an explicit negativeStepValue
+    // (even the "right" one) trips the broken negative branch of getY().
     const top = maxVal + pad;
     const bottom = minVal - pad;
     const total = top + Math.abs(bottom);
@@ -312,9 +308,19 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
       noOfSections: posSections,
       stepValue: top / posSections,
       noOfSectionsBelowXAxis: negSections,
-      stepValueNegative: Math.abs(bottom) / negSections,
     };
   }
+
+  const data: EnrichedDataItem[] = snapshots.map((s) => ({
+    value: s.total_net_worth_usd + yOffset,
+    originalValue: s.total_net_worth_usd,
+    label: monthShortLabel(s.locked_at),
+    dataPointColor: s.is_auto_filled ? ACCENT_FADED : ACCENT,
+    dataPointRadius: s.is_auto_filled ? 3 : 5,
+    snapshotId: s.id,
+    isAutoFilled: s.is_auto_filled,
+    lockedAt: s.locked_at,
+  }));
 
   return (
     <View style={{ paddingBottom: 32 }}>
@@ -341,7 +347,9 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
           yAxisLabelWidth={yAxisLabelWidth}
           yAxisTextStyle={{ color: TEXT_SECONDARY, fontSize: 11 }}
           xAxisLabelTextStyle={{ color: TEXT_SECONDARY, fontSize: 11 }}
-          formatYLabel={abbreviateUsd}
+          formatYLabel={(label) =>
+            abbreviateUsd(String(Number(label) - yOffset))
+          }
           disableScroll
           isAnimated
           animationDuration={600}
@@ -380,7 +388,7 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
                       marginTop: 2,
                     }}
                   >
-                    {formatTooltipMoney(item.value ?? 0)}
+                    {formatTooltipMoney(item.originalValue)}
                   </Text>
                 </View>
               );
