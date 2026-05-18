@@ -205,7 +205,7 @@ function Hero({ current, previous }: { current: Snapshot; previous: Snapshot | n
             </Text>
           )}
           {previous && (
-            <Text style={{ color: TEXT_SECONDARY, fontSize: 13, marginLeft: 8 }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 13, marginLeft: 8 }}>
               vs {monthShortLabel(previous.locked_at)}
             </Text>
           )}
@@ -267,22 +267,54 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
   const values = snapshots.map((s) => s.total_net_worth_usd);
   const minVal = Math.min(...values);
   const maxVal = Math.max(...values);
-  const range = maxVal - minVal || Math.abs(maxVal) || 1;
-  const pad = range * 0.12;
+  const dataRange = maxVal - minVal || Math.abs(maxVal) || 1;
+  const pad = dataRange * 0.15;
 
   const hasAutoFilled = snapshots.some((s) => s.is_auto_filled === 1);
 
-  // Conditionally apply negative-section props. When all values are >= 0, we
-  // skip mostNegativeValue entirely so gifted-charts doesn't draw an empty
-  // section below the x-axis.
-  const negativeProps =
-    minVal < 0
-      ? {
-          mostNegativeValue: minVal - pad,
-          noOfSectionsBelowXAxis: 1,
-          maxValue: Math.max(maxVal + pad, 0),
-        }
-      : { maxValue: maxVal + pad };
+  // gifted-charts is anchored at y=0 and computes stepValue from
+  // maxValue/noOfSections. If we leave maxValue at 0 (or auto) when data is
+  // all-negative, stepValue divides to 0 and the lib falls back to a default
+  // step (~2.5), producing axis labels like $0/$3/$5/$8/$10 with no visible
+  // line. Branch on data sign and pass an explicit stepValue per side.
+  let yAxisProps: {
+    maxValue: number;
+    mostNegativeValue?: number;
+    noOfSections: number;
+    stepValue: number;
+    noOfSectionsBelowXAxis?: number;
+    stepValueNegative?: number;
+  };
+  if (minVal >= 0) {
+    const top = maxVal + pad;
+    yAxisProps = { maxValue: top, noOfSections: 4, stepValue: top / 4 };
+  } else if (maxVal <= 0) {
+    const bottom = minVal - pad;
+    const step = Math.abs(bottom) / 4;
+    yAxisProps = {
+      maxValue: 0,
+      mostNegativeValue: bottom,
+      noOfSections: 1,
+      stepValue: step,
+      noOfSectionsBelowXAxis: 4,
+      stepValueNegative: step,
+    };
+  } else {
+    const top = maxVal + pad;
+    const bottom = minVal - pad;
+    const total = top + Math.abs(bottom);
+    const step = total / 5;
+    const posSections = Math.max(1, Math.round(top / step));
+    const negSections = Math.max(1, 5 - posSections);
+    yAxisProps = {
+      maxValue: top,
+      mostNegativeValue: bottom,
+      noOfSections: posSections,
+      stepValue: top / posSections,
+      noOfSectionsBelowXAxis: negSections,
+      stepValueNegative: Math.abs(bottom) / negSections,
+    };
+  }
 
   return (
     <View style={{ paddingBottom: 32 }}>
@@ -299,7 +331,6 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
           endSpacing={endSpacing}
           spacing={spacing}
           lineSegments={lineSegments}
-          noOfSections={4}
           rulesColor={SURFACE}
           rulesType="solid"
           rulesThickness={1}
@@ -314,7 +345,7 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
           disableScroll
           isAnimated
           animationDuration={600}
-          {...negativeProps}
+          {...yAxisProps}
           pointerConfig={{
             pointerColor: ACCENT,
             radius: 6,

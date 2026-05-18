@@ -188,6 +188,7 @@ export function GridScreen() {
 
       setConfirm("Dashboard demo ready — 5 snapshots");
       setTimeout(() => setConfirm(null), 3000);
+      navigation.navigate("Dashboard");
     } catch (err) {
       console.warn("[GridScreen debug] seed dashboard:", err);
       setConfirm("Seed failed — see logs");
