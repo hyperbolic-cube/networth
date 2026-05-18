@@ -13,6 +13,7 @@ import { initDatabase } from "./src/db/schema";
 import { getLatestSnapshot } from "./src/db/snapshots";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { GridScreen } from "./src/screens/GridScreen";
+import { SnapshotDetailScreen } from "./src/screens/SnapshotDetailScreen";
 import { TodayScreen } from "./src/screens/TodayScreen";
 import { useAssetsStore } from "./src/store/assetsStore";
 import { getMissedMonths, autoFillMissedSnapshots } from "./src/utils/autofill";
@@ -77,6 +78,7 @@ export default function App() {
                 <Stack.Screen name="Grid" component={GridScreen} />
                 <Stack.Screen name="Today" component={TodayScreen} />
                 <Stack.Screen name="Dashboard" component={DashboardScreen} />
+                <Stack.Screen name="SnapshotDetail" component={SnapshotDetailScreen} />
               </Stack.Navigator>
             </NavigationContainer>
           ) : (

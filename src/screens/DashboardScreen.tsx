@@ -3,9 +3,11 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -16,11 +18,12 @@ import { Body, Caption, Display } from "../components/Typography";
 import { getAllAssets } from "../db/assets";
 import { getAllSnapshots } from "../db/snapshots";
 import { useClockStore } from "../store/clockStore";
-import type { Snapshot } from "../types";
+import type { AssetLiability, Snapshot } from "../types";
 import type { RootStackParamList } from "../types/navigation";
 import {
   ASSET_CLASSES,
   aggregateByClass,
+  aggregateSnapshotByClass,
   type AssetClass,
   type ClassTotals,
 } from "../utils/assetClass";
@@ -712,33 +715,337 @@ function DebtBar({ usd }: { usd: number }) {
   );
 }
 
-// ── Placeholder block for sections shipping in 7b.3 ───────────────────────
+// ── Breakdown table by month (Phase 7b.3) ─────────────────────────────────
 
-function UpcomingPlaceholder({
-  title,
-  label,
-  height,
+// Visible rows in free tier. Phase 9 will swap the cap check for a paid-state
+// guard; the trim semantics (most-recent N) stay the same.
+const BREAKDOWN_FREE_LIMIT = 3;
+
+const DATE_COL_WIDTH = 72;
+const VALUE_COL_WIDTH = 84;
+const TABLE_ROW_HEIGHT = 48;
+const TABLE_HEADER_HEIGHT = 36;
+const TABLE_CELL_PADDING_H = 12;
+
+// Order of class columns in the table — matches the user's Google Sheets
+// columns and the order in DECISIONS.md 2026-05-13.
+const TABLE_CLASS_ORDER: readonly AssetClass[] = [
+  "Stocks",
+  "Crypto",
+  "Cash",
+  "RealEstate",
+  "Vehicles",
+  "Debt",
+] as const;
+
+const SHORT_CLASS_LABEL: Record<AssetClass, string> = {
+  Stocks: "Stocks",
+  Crypto: "Crypto",
+  Cash: "Cash",
+  RealEstate: "Real Est.",
+  Vehicles: "Vehicles",
+  Debt: "Debt",
+};
+
+/** Compact USD: $450, $12k, $1.2M, $10M. Negative renders with leading `−`. */
+function formatCompactMoney(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "−" : "";
+  if (abs < 1) return "$0";
+  if (abs < 1_000) return `${sign}$${Math.round(abs)}`;
+  if (abs < 1_000_000) {
+    return `${sign}$${(abs / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
+  }
+  return `${sign}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+}
+
+/** "May '26" — short month + 2-digit year, timezone-safe like monthShortLabel. */
+function monthShortYearLabel(lockedAt: string): string {
+  const [year, month] = lockedAt.split("T")[0].split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString(undefined, {
+    month: "short",
+    year: "2-digit",
+  });
+}
+
+type BreakdownRow = { snapshot: Snapshot; totals: ClassTotals };
+
+function BreakdownHeaderRow() {
+  return (
+    <View
+      style={{
+        height: TABLE_HEADER_HEIGHT,
+        flexDirection: "row",
+        alignItems: "center",
+        borderBottomWidth: 1,
+        borderBottomColor: SURFACE_ELEVATED,
+      }}
+    >
+      {TABLE_CLASS_ORDER.map((cls) => (
+        <View
+          key={cls}
+          style={{
+            width: VALUE_COL_WIDTH,
+            paddingHorizontal: TABLE_CELL_PADDING_H,
+            alignItems: "flex-end",
+          }}
+        >
+          <Text
+            style={{
+              color: TEXT_SECONDARY,
+              fontSize: 11,
+              fontWeight: "600",
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
+            }}
+            numberOfLines={1}
+          >
+            {SHORT_CLASS_LABEL[cls]}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function BreakdownDateCell({ row }: { row: BreakdownRow }) {
+  const isAuto = row.snapshot.is_auto_filled === 1;
+  const color = isAuto ? TEXT_SECONDARY : "#FFFFFF";
+  const label = monthShortYearLabel(row.snapshot.locked_at);
+  return (
+    <View
+      style={{
+        width: DATE_COL_WIDTH,
+        paddingHorizontal: TABLE_CELL_PADDING_H,
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ color, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>
+        {isAuto ? `··· ${label}` : label}
+      </Text>
+    </View>
+  );
+}
+
+function BreakdownValueCells({ row }: { row: BreakdownRow }) {
+  const isAuto = row.snapshot.is_auto_filled === 1;
+  return (
+    <View style={{ flexDirection: "row" }}>
+      {TABLE_CLASS_ORDER.map((cls) => {
+        const v = row.totals[cls];
+        // Empty cells (no value of this class in this snapshot) render as an
+        // em dash instead of "$0" — "$0" implies "you had cash and it was zero"
+        // which is a false signal.
+        const isEmpty = Math.abs(v) < 0.005;
+        let color: string;
+        if (isEmpty) color = TEXT_SECONDARY;
+        else if (cls === "Debt") color = NEGATIVE;
+        else color = isAuto ? TEXT_SECONDARY : "#FFFFFF";
+        return (
+          <View
+            key={cls}
+            style={{
+              width: VALUE_COL_WIDTH,
+              paddingHorizontal: TABLE_CELL_PADDING_H,
+              alignItems: "flex-end",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{ color, fontSize: 13, fontWeight: "500" }}
+              numberOfLines={1}
+            >
+              {isEmpty ? "—" : formatCompactMoney(v)}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function BreakdownBodyRow({
+  row,
+  isLast,
+  onPress,
 }: {
-  title: string;
-  label: string;
-  height: number;
+  row: BreakdownRow;
+  isLast: boolean;
+  onPress: () => void;
 }) {
   return (
-    <View style={{ paddingBottom: 24 }}>
-      <SectionHeader title={title} />
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        height: TABLE_ROW_HEIGHT,
+        borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+        borderBottomColor: SURFACE_ELEVATED,
+        opacity: pressed ? 0.55 : 1,
+      })}
+    >
+      <BreakdownDateCell row={row} />
+      <BreakdownValueCells row={row} />
+    </Pressable>
+  );
+}
+
+function UpgradeRow({ totalSnapshots }: { totalSnapshots: number }) {
+  return (
+    <Pressable
+      onPress={() => {
+        tapLight();
+        Alert.alert(
+          "Coming soon",
+          "Full history unlocks with the Phase 9 paywall."
+        );
+      }}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        height: TABLE_ROW_HEIGHT,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: SURFACE_ELEVATED,
+        opacity: pressed ? 0.55 : 1,
+        paddingHorizontal: TABLE_CELL_PADDING_H,
+      })}
+    >
+      <Text style={{ color: ACCENT, fontSize: 13, fontWeight: "600" }}>
+        Upgrade to see all {totalSnapshots} snapshots →
+      </Text>
+    </Pressable>
+  );
+}
+
+function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const mockDate = useClockStore((s) => s.mockDate);
+  const [rows, setRows] = useState<BreakdownRow[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRows(null);
+    (async () => {
+      try {
+        const assets: AssetLiability[] = await getAllAssets();
+        const assetsById = new Map(assets.map((a) => [a.id, a]));
+        const totals = await Promise.all(
+          snapshots.map((s) => aggregateSnapshotByClass(s.id, assetsById))
+        );
+        if (!cancelled) {
+          setRows(snapshots.map((snapshot, i) => ({ snapshot, totals: totals[i] })));
+        }
+      } catch (err) {
+        console.error("[BreakdownTableSection] load failed:", err);
+        if (!cancelled) setRows([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [snapshots, mockDate]);
+
+  if (rows === null) {
+    return (
+      <View style={{ paddingBottom: 32 }}>
+        <SectionHeader title="Breakdown by month" />
+        <View
+          style={{
+            marginHorizontal: HORIZONTAL_PADDING,
+            height: 160,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ActivityIndicator color={TEXT_SECONDARY} />
+        </View>
+      </View>
+    );
+  }
+
+  const isCapped = rows.length > BREAKDOWN_FREE_LIMIT;
+  // Oldest-first ordering. When capped we still show the most recent N
+  // (free tier must show recent data — paywall gates history, not the present).
+  // The upgrade prompt sits at the TOP, where the older hidden rows would be.
+  const visibleRows = isCapped ? rows.slice(-BREAKDOWN_FREE_LIMIT) : rows;
+
+  return (
+    <View style={{ paddingBottom: 32 }}>
+      <SectionHeader title="Breakdown by month" />
       <View
         style={{
           marginHorizontal: HORIZONTAL_PADDING,
-          height,
           borderRadius: 16,
-          borderWidth: 1,
-          borderColor: SURFACE_ELEVATED,
-          borderStyle: "dashed",
-          alignItems: "center",
-          justifyContent: "center",
+          backgroundColor: SURFACE,
+          overflow: "hidden",
+          flexDirection: "row",
         }}
       >
-        <Caption className="text-textSecondary">{label}</Caption>
+        {/* Sticky left column: date labels (header spacer + per-row date cells) */}
+        <View>
+          <View
+            style={{
+              height: TABLE_HEADER_HEIGHT,
+              width: DATE_COL_WIDTH,
+              borderBottomWidth: 1,
+              borderBottomColor: SURFACE_ELEVATED,
+            }}
+          />
+          {isCapped && (
+            <View
+              style={{
+                height: TABLE_ROW_HEIGHT,
+                width: DATE_COL_WIDTH,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: SURFACE_ELEVATED,
+              }}
+            />
+          )}
+          {visibleRows.map((row) => (
+            <Pressable
+              key={row.snapshot.id}
+              onPress={() => {
+                tapLight();
+                navigation.navigate("SnapshotDetail", { snapshotId: row.snapshot.id });
+              }}
+              style={({ pressed }) => ({
+                height: TABLE_ROW_HEIGHT,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: SURFACE_ELEVATED,
+                opacity: pressed ? 0.55 : 1,
+              })}
+            >
+              <BreakdownDateCell row={row} />
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Scrollable right pane: header + value cells */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+        >
+          <View>
+            <BreakdownHeaderRow />
+            {isCapped && (
+              <UpgradeRow totalSnapshots={rows.length} />
+            )}
+            {visibleRows.map((row, i) => (
+              <BreakdownBodyRow
+                key={row.snapshot.id}
+                row={row}
+                isLast={i === visibleRows.length - 1}
+                onPress={() => {
+                  tapLight();
+                  navigation.navigate("SnapshotDetail", { snapshotId: row.snapshot.id });
+                }}
+              />
+            ))}
+          </View>
+        </ScrollView>
       </View>
     </View>
   );
@@ -864,11 +1171,7 @@ export function DashboardScreen() {
           <Hero current={current!} previous={previous} />
           <ChartSection snapshots={snapshots} />
           <DonutSection />
-          <UpcomingPlaceholder
-            title="Breakdown by month"
-            label="Breakdown table — Phase 7b.3"
-            height={128}
-          />
+          <BreakdownTableSection snapshots={snapshots} />
         </ScrollView>
       )}
     </View>

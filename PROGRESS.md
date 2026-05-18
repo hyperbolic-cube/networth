@@ -136,20 +136,25 @@
 - [x] Subscribes to mockDate for time-travel-consistent re-fetch
 - [x] npx tsc --noEmit clean
 
-### 7.4 — Breakdown table by month (KEY NEW FEATURE)
-- [ ] Tabular component showing all snapshots in rows, asset classes in columns
-- [ ] Columns: Date | Stocks | Crypto | Cash | Real Estate | Vehicles | Debt
-- [ ] Each cell aggregates calculated_value_usd across assets of that class in that snapshot
-- [ ] Debt column shows liabilities as negative
-- [ ] Horizontally scrollable on small screens
-- [ ] Tap on row → snapshot detail view (Phase 7.5)
-- [ ] This mirrors user's existing Google Sheets workflow — designed for power users
+### 7b.3 — Breakdown table by month + SnapshotDetail stub ✅
+- [x] New util `aggregateSnapshotByClass(snapshotId, assetsById)` in src/utils/assetClass.ts — reads snapshot_items, classifies via shared map (no N+1), sign-based fallback for deleted assets (dev warn)
+- [x] BreakdownTableSection inside DashboardScreen: sticky 72pt Date column + horizontally-scrollable 84pt class columns (Stocks | Crypto | Cash | Real Est. | Vehicles | Debt)
+- [x] Oldest-first ordering (matches the chart's left=old→right=new visual flow)
+- [x] Compact number formatting ($450 / $12k / $1.2M) via formatCompactMoney
+- [x] Empty cells render as em dash (—) not "$0"
+- [x] Auto-filled rows: faded text + "··· " prefix on the date label (mirrors chart legend symbol)
+- [x] Debt column always NEGATIVE red regardless of locked/auto state
+- [x] Free-tier paywall stub: cap at 3 visible rows (most recent 3, preserved internal oldest→newest order); "Upgrade to see all N snapshots →" prompt at top → Alert "Coming soon — Phase 9"
+- [x] Tap row → navigates to SnapshotDetail with snapshotId
+- [x] SnapshotDetail added to RootStackParamList; new src/screens/SnapshotDetailScreen.tsx stub (back + Edit-paywall alert + receives snapshotId display)
+- [x] Stack.Screen registered in App.tsx
+- [x] npx tsc --noEmit clean
 
-### 7.5 — Snapshot detail view
-- [ ] Tap snapshot in breakdown table or history → SnapshotDetailScreen
-- [ ] Shows all snapshot_items for that snapshot
-- [ ] "Edit" button — visible always but routes to paywall if `getSnapshotCount() >= 3` (free limit hit means edit is paid)
-- [ ] Read-only view of historical lock state
+### 7.5 — Snapshot detail view (full content)
+- [x] Routing stub shipped in 7b.3 (back button + Edit→paywall alert)
+- [ ] Phase 7c: render snapshot_items list with name/type/values
+- [ ] Phase 7c: read-only view of historical lock state
+- [ ] Phase 9: Edit button routes to paywall when not paid
 
 ### 7.6 — Empty state
 - [ ] If 0 snapshots: Dashboard shows "Your first lock window: {date}" with educational copy
