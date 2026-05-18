@@ -10,13 +10,20 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LineChart } from "react-native-gifted-charts";
+import { LineChart, PieChart } from "react-native-gifted-charts";
 import type { LineSegment, lineDataItem } from "react-native-gifted-charts";
 import { Body, Caption, Display } from "../components/Typography";
+import { getAllAssets } from "../db/assets";
 import { getAllSnapshots } from "../db/snapshots";
 import { useClockStore } from "../store/clockStore";
 import type { Snapshot } from "../types";
 import type { RootStackParamList } from "../types/navigation";
+import {
+  ASSET_CLASSES,
+  aggregateByClass,
+  type AssetClass,
+  type ClassTotals,
+} from "../utils/assetClass";
 import { tapLight } from "../utils/haptics";
 
 // ── Theme constants ───────────────────────────────────────────────────────
@@ -409,7 +416,303 @@ function ChartSection({ snapshots }: { snapshots: Snapshot[] }) {
   );
 }
 
-// ── Placeholder block for sections shipping in 7b.2 / 7b.3 ────────────────
+// ── Donut allocation (Phase 7b.2) ──────────────────────────────────────────
+
+const CLASS_COLORS: Record<AssetClass, string> = {
+  Stocks: "#0A84FF",
+  Crypto: "#5E5CE6",
+  Cash: "#30D158",
+  RealEstate: "#FF9F0A",
+  Vehicles: "#BF5AF2",
+  Debt: "#FF453A",
+};
+
+const CLASS_LABELS: Record<AssetClass, string> = {
+  Stocks: "Stocks",
+  Crypto: "Crypto",
+  Cash: "Cash",
+  RealEstate: "Real Estate",
+  Vehicles: "Vehicles",
+  Debt: "Debt",
+};
+
+const DONUT_RADIUS = 90;
+const DONUT_INNER_RADIUS = 54; // 60% of outer
+const NEAR_ZERO_USD = 0.01;
+const WIDE_LAYOUT_BREAKPOINT = 380;
+
+/** Format a USD amount for legend rows / debt bar (no cents, signed). */
+function formatLegendMoney(n: number): string {
+  const abs = Math.abs(Math.round(n));
+  const formatted = "$" + abs.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return n < 0 ? "−" + formatted : formatted;
+}
+
+type LegendRow = {
+  cls: AssetClass;
+  usd: number;
+  share: number; // 0..1 relative to total positive assets
+};
+
+function DonutCenter({ totalAssets }: { totalAssets: number }) {
+  return (
+    <View style={{ alignItems: "center", justifyContent: "center" }}>
+      <Text
+        style={{
+          color: TEXT_SECONDARY,
+          fontSize: 11,
+          fontWeight: "600",
+          letterSpacing: 0.8,
+          textTransform: "uppercase",
+        }}
+      >
+        Assets
+      </Text>
+      <Text
+        style={{
+          color: "#FFFFFF",
+          fontSize: 18,
+          fontWeight: "700",
+          marginTop: 4,
+        }}
+      >
+        {formatLegendMoney(totalAssets)}
+      </Text>
+    </View>
+  );
+}
+
+function LegendRowView({ row }: { row: LegendRow }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 6,
+      }}
+    >
+      <View
+        style={{
+          width: 12,
+          height: 12,
+          borderRadius: 4,
+          backgroundColor: CLASS_COLORS[row.cls],
+          marginRight: 10,
+        }}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: "#FFFFFF", fontSize: 15, fontWeight: "600" }}>
+          {CLASS_LABELS[row.cls]}
+        </Text>
+      </View>
+      <View style={{ alignItems: "flex-end" }}>
+        <Text style={{ color: TEXT_SECONDARY, fontSize: 13 }}>
+          {formatLegendMoney(row.usd)}
+        </Text>
+        <Text
+          style={{
+            color: TEXT_SECONDARY,
+            fontSize: 11,
+            fontWeight: "600",
+            marginTop: 2,
+          }}
+        >
+          {(row.share * 100).toFixed(0)}%
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function DonutSection() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const mockDate = useClockStore((s) => s.mockDate);
+  const [totals, setTotals] = useState<ClassTotals | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setTotals(null);
+    getAllAssets()
+      .then(async (assets) => {
+        const t = await aggregateByClass(assets);
+        if (!cancelled) setTotals(t);
+      })
+      .catch((err) => {
+        console.error("[DonutSection] aggregateByClass failed:", err);
+        if (!cancelled) {
+          setTotals({
+            Stocks: 0,
+            Crypto: 0,
+            Cash: 0,
+            RealEstate: 0,
+            Vehicles: 0,
+            Debt: 0,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mockDate]);
+
+  if (totals === null) {
+    return (
+      <View style={{ paddingBottom: 32 }}>
+        <SectionHeader title="Allocation" />
+        <View
+          style={{
+            marginHorizontal: HORIZONTAL_PADDING,
+            height: 192,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ActivityIndicator color={TEXT_SECONDARY} />
+        </View>
+      </View>
+    );
+  }
+
+  const debtUsd = totals.Debt; // already negative or 0
+
+  const assetRows: LegendRow[] = ASSET_CLASSES
+    .filter((c) => c !== "Debt" && totals[c] > NEAR_ZERO_USD)
+    .map((c) => ({ cls: c, usd: totals[c], share: 0 }));
+
+  const totalAssets = assetRows.reduce((sum, r) => sum + r.usd, 0);
+  assetRows.forEach((r) => {
+    r.share = totalAssets > 0 ? r.usd / totalAssets : 0;
+  });
+  assetRows.sort((a, b) => b.usd - a.usd);
+
+  const hasDebt = debtUsd < -NEAR_ZERO_USD;
+  const isWide = SCREEN_WIDTH >= WIDE_LAYOUT_BREAKPOINT;
+
+  // Empty state: no positive assets at all.
+  if (assetRows.length === 0) {
+    return (
+      <View style={{ paddingBottom: 32 }}>
+        <SectionHeader title="Allocation" />
+        <View
+          style={{
+            marginHorizontal: HORIZONTAL_PADDING,
+            paddingVertical: 32,
+            alignItems: "center",
+            gap: 16,
+          }}
+        >
+          <Body className="text-textSecondary text-center">
+            Add assets to see your allocation.
+          </Body>
+          <Pressable
+            onPress={() => {
+              tapLight();
+              navigation.navigate("Grid");
+            }}
+            style={{
+              backgroundColor: ACCENT,
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+            }}
+          >
+            <Text style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 15 }}>
+              Go to Grid
+            </Text>
+          </Pressable>
+        </View>
+        {hasDebt && (
+          <View style={{ paddingHorizontal: HORIZONTAL_PADDING, marginTop: 8 }}>
+            <DebtBar usd={debtUsd} />
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  const pieData = assetRows.map((r) => ({
+    value: r.usd,
+    color: CLASS_COLORS[r.cls],
+  }));
+
+  const donut = (
+    <PieChart
+      data={pieData}
+      donut
+      radius={DONUT_RADIUS}
+      innerRadius={DONUT_INNER_RADIUS}
+      innerCircleColor={"#000000"}
+      isAnimated
+      animationDuration={600}
+      centerLabelComponent={() => <DonutCenter totalAssets={totalAssets} />}
+    />
+  );
+
+  const legend = (
+    <View>
+      {assetRows.map((r) => (
+        <LegendRowView key={r.cls} row={r} />
+      ))}
+    </View>
+  );
+
+  return (
+    <View style={{ paddingBottom: 32 }}>
+      <SectionHeader title="Allocation" />
+
+      {isWide ? (
+        <View
+          style={{
+            paddingHorizontal: HORIZONTAL_PADDING,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 24,
+          }}
+        >
+          <View>{donut}</View>
+          <View style={{ flex: 1 }}>{legend}</View>
+        </View>
+      ) : (
+        <View style={{ paddingHorizontal: HORIZONTAL_PADDING, alignItems: "center" }}>
+          {donut}
+          <View style={{ width: "100%", marginTop: 24 }}>{legend}</View>
+        </View>
+      )}
+
+      {hasDebt && (
+        <View style={{ paddingHorizontal: HORIZONTAL_PADDING, marginTop: 16 }}>
+          <DebtBar usd={debtUsd} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+function DebtBar({ usd }: { usd: number }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#FF453A4D", // 30% alpha
+        borderRadius: 8,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        minHeight: 24,
+      }}
+    >
+      <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+        Debt
+      </Text>
+      <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+        {formatLegendMoney(usd)}
+      </Text>
+    </View>
+  );
+}
+
+// ── Placeholder block for sections shipping in 7b.3 ───────────────────────
 
 function UpcomingPlaceholder({
   title,
@@ -560,11 +863,7 @@ export function DashboardScreen() {
         >
           <Hero current={current!} previous={previous} />
           <ChartSection snapshots={snapshots} />
-          <UpcomingPlaceholder
-            title="Allocation"
-            label="Donut chart — Phase 7b.2"
-            height={192}
-          />
+          <DonutSection />
           <UpcomingPlaceholder
             title="Breakdown by month"
             label="Breakdown table — Phase 7b.3"

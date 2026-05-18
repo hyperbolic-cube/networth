@@ -110,12 +110,31 @@
 - [x] Subscribes to useClockStore.mockDate; refetches getAllSnapshots on time-travel changes; loading spinner while null
 - [x] No new DB helpers needed — getAllSnapshots() already orders by locked_at ASC; previous = snapshots[length-2]
 
-### 7.2 — Dashboard layout (placeholder — superseded by 7b sub-phases)
+### 7.2 — Dashboard layout ✅
+- [x] DashboardScreen.tsx with scrollable container, header, hero section
+- [x] Hero: most recent snapshot net worth, delta vs previous, color-aware
+- [x] Line chart (react-native-gifted-charts) with auto-filled visual distinction
+- [x] Pointer tooltip on tap showing date + USD value
+- [x] Data-shift workaround for all-negative case (library bug)
+- [x] Single-snapshot edge case (— delta, lone dot)
+- [x] Empty state (deferred testing, code in place)
 
 ### 7.3 — Allocation donut
-- [ ] Donut chart of current Today allocation by asset class
-- [ ] Categories: Stocks (BROKER stock+bond), Crypto (BROKER crypto), Cash (BANK+CASH), Real Estate, Vehicles, Debt (all liabilities)
-- [ ] Legend with percentages
+- [x] Donut chart of current Today allocation by asset class
+- [x] Categories: Stocks (BROKER stock+bond), Crypto (BROKER crypto), Cash (BANK+CASH), Real Estate, Vehicles, Debt (all liabilities)
+- [x] Legend with percentages
+
+### 7b.2 — Donut allocation chart + asset class aggregation ✅
+- [x] New util `src/utils/assetClass.ts`: AssetClass union, ASSET_CLASSES const, exhaustive classifyAsset switch (throws on unreachable type), aggregateByClass(assets) → ClassTotals via Promise.all(computeItem)
+- [x] DonutSection in DashboardScreen replaces UpcomingPlaceholder "Allocation"
+- [x] gifted-charts PieChart in donut mode (radius 90 / innerRadius 54), animated 600ms, center label "Assets" + total USD (assets-only denominator, not net worth)
+- [x] iOS-system color palette: Stocks #0A84FF, Crypto #5E5CE6, Cash #30D158, RealEstate #FF9F0A, Vehicles #BF5AF2, Debt #FF453A
+- [x] Legend rows (color swatch + class name + $ value + % share), sorted by absolute value desc, near-zero (|<$0.01|) classes filtered
+- [x] Wide layout (≥380pt): donut + legend side-by-side. Narrow: donut above legend.
+- [x] Debt handled as separate horizontal red bar below donut (option c — honest financially, debt is not a "share of allocation")
+- [x] Empty state: "Add assets to see your allocation" + Go to Grid CTA when no positive assets (debt bar still renders if debt exists)
+- [x] Subscribes to mockDate for time-travel-consistent re-fetch
+- [x] npx tsc --noEmit clean
 
 ### 7.4 — Breakdown table by month (KEY NEW FEATURE)
 - [ ] Tabular component showing all snapshots in rows, asset classes in columns
