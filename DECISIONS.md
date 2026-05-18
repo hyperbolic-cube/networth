@@ -474,3 +474,15 @@ and extend with their own columns.
 Defer to Phase 9 start. Pricing research against competitors (Monarch, Empower,
 Mint) at that time. Annual price = ~6 months equivalent = standard 50% annual
 discount pattern.
+
+## 2026-05-18 — expo-linear-gradient required by react-native-gifted-charts
+
+gifted-charts uses gradient under area charts (transitively required even
+when areaChart prop is false). Without expo-linear-gradient as a direct
+dependency, app fails to bundle with "Gradient package was not found".
+
+Installed via npx expo install expo-linear-gradient. Pinned to SDK 54
+compatible version automatically.
+
+If npm prune ever drops this — Dashboard chart will fail at runtime.
+This file is where to look.
