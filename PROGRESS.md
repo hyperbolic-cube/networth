@@ -169,11 +169,11 @@
 - [ ] Update DECISIONS.md with final pricing
 
 ### 9.2 — RevenueCat integration
-- [ ] Install react-native-purchases + react-native-purchases-ui
+- [x] Install react-native-purchases + react-native-purchases-ui (v10.1.1 via npx expo install; config plugin added to app.json)
 - [ ] App Store Connect: create subscription products, screenshots, descriptions
 - [ ] Google Play Console: same setup for Android
 - [ ] RevenueCat dashboard: connect both stores, configure products
-- [ ] App.tsx init: initialize RevenueCat with API key (in env or constants)
+- [x] App.tsx init: initRevenueCat() (EXPO_PUBLIC_ env keys, warn-and-return if missing) + setupRCListener() after initClock()
 
 ### 9.3 — Paywall screen
 - [ ] New PaywallScreen.tsx — full-screen modal
@@ -190,9 +190,10 @@
 - [ ] BreakdownTable: Export CSV button when `!isPaid()` → PaywallScreen
 
 ### 9.5 — Paid state plumbing
-- [ ] Zustand store slice: useEntitlementStore with `isPaid: boolean`, updates via RevenueCat listener
-- [ ] Init from RevenueCat customer info on app launch
-- [ ] Subscribe to entitlement changes (sub renews, cancels, expires)
+- [x] Zustand store slice: useEntitlementStore with `isPaid: boolean`, updates via RevenueCat listener (src/store/entitlementStore.ts)
+- [x] Init from RevenueCat customer info on app launch (useEntitlementStore.refresh() at end of App init effect)
+- [x] Subscribe to entitlement changes — addCustomerInfoUpdateListener fires _setFromCustomerInfo on purchase/expire/restore
+- [x] Helper utils: useIsPaid() hook + getPaywallTrigger(reason) non-hook utility (src/utils/entitlement.ts)
 
 ### 9.6 — Settings screen (basic)
 - [ ] New SettingsScreen.tsx — accessed via gear icon on Dashboard
@@ -209,6 +210,8 @@
 - [ ] Test subscription expiration / renewal scenarios
 
 ## Phase 8: Polish (LAST before release)
+- [ ] Add delete asset functionality (swipe-to-delete on Today, or delete button in edit sheet)
+- [ ] Allow quantity 0 as valid input (or guide user to "delete" action explicitly)
 - [ ] Dark mode tokens (#000, #1C1C1E) — verify cross-platform
 - [ ] Loading states for API fetches refined
 - [ ] Error boundaries wrapping critical screens
