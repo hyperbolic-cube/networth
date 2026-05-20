@@ -3,7 +3,6 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   Pressable,
   ScrollView,
@@ -859,14 +858,12 @@ function BreakdownBodyRow({
 }
 
 function UpgradeRow({ totalSnapshots }: { totalSnapshots: number }) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   return (
     <Pressable
       onPress={() => {
         tapLight();
-        Alert.alert(
-          "Coming soon",
-          "Full history unlocks with the Phase 9 paywall."
-        );
+        navigation.navigate("Paywall", { reason: "snapshot_limit" });
       }}
       style={({ pressed }) => ({
         flexDirection: "row",

@@ -21,6 +21,7 @@ import {
 } from "../utils/assetClass";
 import { formatHeroMoney, monthDayYearLabel, monthYearLabel } from "../utils/format";
 import { tapLight } from "../utils/haptics";
+import { useIsPaid } from "../utils/entitlement";
 
 // ── Theme ──────────────────────────────────────────────────────────────────
 
@@ -283,6 +284,7 @@ export function SnapshotDetailScreen({
 }: SnapshotDetailScreenProps) {
   const insets = useSafeAreaInsets();
   const { snapshotId } = route.params;
+  const isPaid = useIsPaid();
   const [state, setState] = useState<ScreenState>({ status: "loading" });
 
   useEffect(() => {
@@ -391,10 +393,11 @@ export function SnapshotDetailScreen({
         <Pressable
           onPress={() => {
             tapLight();
-            Alert.alert(
-              "Coming soon",
-              "Editing locked snapshots is available in the paid tier.",
-            );
+            if (!isPaid) {
+              navigation.navigate("Paywall", { reason: "edit_locked" });
+            } else {
+              Alert.alert("Edit snapshot", "Edit flow coming in Phase 7c.");
+            }
           }}
           hitSlop={12}
           style={{ minWidth: 80, alignItems: "flex-end" }}

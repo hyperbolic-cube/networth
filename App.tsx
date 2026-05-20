@@ -15,6 +15,7 @@ import { initDatabase } from "./src/db/schema";
 import { getLatestSnapshot } from "./src/db/snapshots";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { GridScreen } from "./src/screens/GridScreen";
+import { PaywallScreen } from "./src/screens/PaywallScreen";
 import { SnapshotDetailScreen } from "./src/screens/SnapshotDetailScreen";
 import { TodayScreen } from "./src/screens/TodayScreen";
 import { useAssetsStore } from "./src/store/assetsStore";
@@ -115,6 +116,11 @@ export default function App() {
                 <Stack.Screen name="Today" component={TodayScreen} />
                 <Stack.Screen name="Dashboard" component={DashboardScreen} />
                 <Stack.Screen name="SnapshotDetail" component={SnapshotDetailScreen} />
+                <Stack.Screen
+                  name="Paywall"
+                  component={PaywallScreen}
+                  options={{ presentation: "modal", headerShown: false, gestureEnabled: true }}
+                />
               </Stack.Navigator>
             </NavigationContainer>
           ) : (

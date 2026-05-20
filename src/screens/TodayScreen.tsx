@@ -43,6 +43,7 @@ import {
   nextLockWindowDate,
 } from "../utils/lockWindow";
 import { applyAmortization } from "../utils/amortization";
+import { useIsPaid } from "../utils/entitlement";
 import type { RootStackParamList } from "../types/navigation";
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -119,6 +120,7 @@ export function TodayScreen() {
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
   const mockDate = useClockStore((s) => s.mockDate);
+  const isPaid = useIsPaid();
   const sorted = sortItems(items);
 
   // ── Row state keyed by item.id ─────────────────────────────────────────
@@ -334,6 +336,15 @@ export function TodayScreen() {
   // ── Lock action ────────────────────────────────────────────────────────
   async function handleLock() {
     if (lockDisabled) return;
+
+    if (!isPaid) {
+      const count = await getSnapshotCount();
+      if (count >= 3) {
+        navigation.navigate("Paywall", { reason: "snapshot_limit" });
+        return;
+      }
+    }
+
     setLocking(true);
     setLockError(false);
     try {

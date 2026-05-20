@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { tapLight } from "../utils/haptics";
+import { useIsPaid } from "../utils/entitlement";
 import type { RootStackParamList } from "../types/navigation";
 import { BrokerSheet } from "../components/BrokerSheet";
 import { LiabilitySheet } from "../components/LiabilitySheet";
@@ -40,6 +41,7 @@ export function GridScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
+  const isPaid = useIsPaid();
 
   // One ref per sheet instance.
   const bankRef      = useRef<BottomSheetModal>(null);
@@ -52,6 +54,11 @@ export function GridScreen() {
   const creditRef    = useRef<BottomSheetModal>(null);
 
   function handleTilePress(key: TileKey) {
+    if (!isPaid && items.length >= 3) {
+      tapLight();
+      navigation.navigate("Paywall", { reason: "asset_limit" });
+      return;
+    }
     switch (key) {
       case "bank":       bankRef.current?.present();       break;
       case "broker":     brokerRef.current?.present();     break;
