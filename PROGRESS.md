@@ -163,10 +163,10 @@
 
 ## Phase 9: Paywall + In-App Purchases (BEFORE Phase 8 polish)
 
-### 9.1 — Pricing research
-- [ ] Research competitor pricing (Monarch, Empower, Mint, Copilot, YNAB)
-- [ ] Finalize: monthly price + annual price + free trial period (if any)
-- [ ] Update DECISIONS.md with final pricing
+## Phase 9.1: Pricing research ✅
+- [x] Research competitor pricing (Monarch $14.99/$99.99, YNAB $14.99/$109, Copilot $13/$95, Tiller $79, SheetLink $4.99/$39.99)
+- [x] Finalize: $4.99/mo + $29.99/yr, no trial (free tier serves as trial)
+- [x] Update DECISIONS.md with final pricing (2026-05-20 entry)
 
 ### 9.2 — RevenueCat integration
 - [x] Install react-native-purchases + react-native-purchases-ui (v10.1.1 via npx expo install; config plugin added to app.json)

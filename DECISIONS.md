@@ -500,3 +500,38 @@ This trades conversion timing (paywall hits at lock attempt, not at view)
 for better free experience.
 
 Defer final call to Phase 9 with actual paywall design.
+
+## 2026-05-20 — Final pricing (Phase 9.1 research complete)
+
+Competitor research (May 2026):
+- Monarch: $14.99/mo, $99.99/yr (cross-platform, bank-linked)
+- YNAB: $14.99/mo, $109/yr (cross-platform, zero-based budgeting)
+- Copilot: $13/mo, $95/yr (Apple-only)
+- Tiller: $79/yr (sheets-based)
+- SheetLink: $4.99/mo, $39.99/yr (sheets-based, closest niche competitor)
+
+NetWorth is NOT competing on features with bank-linked apps. It's a manual,
+privacy-first, no-bank-linking tracker. Closest competitors are sheets-based
+tools (Tiller, SheetLink) at $40-80/yr.
+
+FINAL PRICING:
+- Monthly: $4.99 (accessible, matches SheetLink monthly, well below premium tier)
+- Annual: $29.99 ($2.50/mo equivalent, 50% discount vs monthly×12)
+- Trial: NONE. Free tier (3 assets, 3 snapshots, read-only Dashboard) serves
+  as the trial — user evaluates free forever, upgrades at limit.
+
+Rationale for $29.99 annual (cheapest on market):
+- Unproven brand, no track record yet — low barrier accelerates first 100 users
+- Manual entry = higher friction = lower price compensates
+- Can raise later: Apple/Google grandfather existing subscribers at old price,
+  new subscribers see new price. Lowering needs no consent; raising prompts
+  existing users.
+- First-100-users goal prioritizes adoption velocity over revenue per user
+
+Revisit pricing after 100 paying users with real conversion data.
+
+Product IDs (App Store Connect + Google Play):
+- com.bmpcorpo.networth.premium_monthly
+- com.bmpcorpo.networth.premium_annual
+RevenueCat entitlement: "premium"
+RevenueCat offering: "default" with $rc_monthly + $rc_annual packages
