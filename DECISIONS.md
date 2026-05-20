@@ -486,3 +486,17 @@ compatible version automatically.
 
 If npm prune ever drops this — Dashboard chart will fail at runtime.
 This file is where to look.
+
+## 2026-05-18 — Paywall cap: visibility vs editability decision deferred
+
+Phase 7b.3 implemented 3-row cap on breakdown table for free tier. In smoke
+testing it became clear this blocks free users from VIEWING old snapshots,
+not just editing them. Consider in Phase 9: separate cap on "visibility"
+(maybe none — all snapshots visible) from cap on "edit" (paid only).
+
+Possible refinement: keep snapshot count cap at 3 for LOCKING (user can't
+create 4th snapshot), but show all existing snapshots in dashboard read-only.
+This trades conversion timing (paywall hits at lock attempt, not at view)
+for better free experience.
+
+Defer final call to Phase 9 with actual paywall design.
