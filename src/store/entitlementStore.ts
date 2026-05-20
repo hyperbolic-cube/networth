@@ -18,11 +18,15 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
   isLoading: true,
 
   async refresh() {
+    if (!(await Purchases.isConfigured())) {
+      set({ isLoading: false, isPaid: false });
+      return;
+    }
     try {
       const info = await Purchases.getCustomerInfo();
       get()._setFromCustomerInfo(info);
     } catch (err) {
-      console.error("[entitlementStore] refresh failed:", err);
+      console.warn("[entitlementStore] refresh failed:", err);
       set({ isLoading: false });
     }
   },
