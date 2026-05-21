@@ -15,6 +15,7 @@ import { Tile } from "../components/Tile";
 import { Body, Caption, Display } from "../components/Typography";
 import { useAssetsStore } from "../store/assetsStore";
 import { useClockStore } from "../store/clockStore";
+import { useEntitlementStore } from "../store/entitlementStore";
 import { createAsset, updateAsset } from "../db/assets";
 import { resetDatabase, seedDatabase } from "../db/dev";
 import { db } from "../db/client";
@@ -72,6 +73,7 @@ export function GridScreen() {
   }
 
   const mockDate = useClockStore((s) => s.mockDate);
+  const devPaidOverride = useEntitlementStore((s) => s.devPaidOverride);
 
   const [busy, setBusy] = useState<null | "reset" | "seed" | "resetAll" | "autofill" | "seedDashboard">(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -417,6 +419,29 @@ export function GridScreen() {
                 </Pressable>
               </View>
             </View>
+
+          {/* ── isPaid override ──────────────────────────────────────────── */}
+          <View className="mt-4 border border-yellow-500 rounded-xl p-4">
+            <Text className="text-yellow-500 font-bold text-sm mb-0.5">ENTITLEMENT</Text>
+            <Text className="text-textSecondary text-xs mb-4">
+              Override isPaid for UI testing — no sandbox needed
+            </Text>
+            <Pressable
+              onPress={() => {
+                tapLight();
+                const next =
+                  devPaidOverride === null ? true :
+                  devPaidOverride === true ? false : null;
+                useEntitlementStore.getState().setDevPaidOverride(next);
+              }}
+              className="bg-surfaceElevated rounded-lg py-3 items-center"
+            >
+              <Text className="text-textPrimary text-sm">
+                Paid:{" "}
+                {devPaidOverride === null ? "REAL" : devPaidOverride ? "ON" : "OFF"}
+              </Text>
+            </Pressable>
+          </View>
           </View>
         )}
       </ScrollView>

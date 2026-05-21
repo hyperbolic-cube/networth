@@ -8,14 +8,23 @@ interface EntitlementState {
   isPaid: boolean;
   customerInfo: CustomerInfo | null;
   isLoading: boolean;
+  // __DEV__ only — always null in production (setDevPaidOverride is a no-op there)
+  devPaidOverride: boolean | null;
   refresh: () => Promise<void>;
   _setFromCustomerInfo: (info: CustomerInfo) => void;
+  setDevPaidOverride: (value: boolean | null) => void;
 }
 
 export const useEntitlementStore = create<EntitlementState>((set, get) => ({
   isPaid: false,
   customerInfo: null,
   isLoading: true,
+  devPaidOverride: null,
+
+  setDevPaidOverride(value) {
+    if (!__DEV__) return;
+    set({ devPaidOverride: value });
+  },
 
   async refresh() {
     if (!(await Purchases.isConfigured())) {

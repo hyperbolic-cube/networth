@@ -13,7 +13,10 @@ export interface PaywallTriggerResult {
 
 /** React selector hook — call inside components. */
 export function useIsPaid(): boolean {
-  return useEntitlementStore((s) => s.isPaid);
+  const isPaid = useEntitlementStore((s) => s.isPaid);
+  const devOverride = useEntitlementStore((s) => s.devPaidOverride);
+  if (__DEV__ && devOverride !== null) return devOverride;
+  return isPaid;
 }
 
 /**
@@ -22,12 +25,13 @@ export function useIsPaid(): boolean {
  * the paywall (e.g. getAssetsCount() >= 3 && getPaywallTrigger('asset_limit').shouldShow).
  */
 export function getPaywallTrigger(reason: PaywallReason): PaywallTriggerResult {
-  const isPaid = useEntitlementStore.getState().isPaid;
+  const { isPaid, devPaidOverride } = useEntitlementStore.getState();
+  const effectiveIsPaid = __DEV__ && devPaidOverride !== null ? devPaidOverride : isPaid;
   const messages: Record<PaywallReason, string> = {
     asset_limit: "Upgrade to add unlimited assets",
     snapshot_limit: "Upgrade to track unlimited months",
     edit_locked: "Upgrade to edit any snapshot",
     export: "Upgrade to export your data to CSV",
   };
-  return { shouldShow: !isPaid, message: messages[reason] };
+  return { shouldShow: !effectiveIsPaid, message: messages[reason] };
 }
