@@ -535,3 +535,48 @@ Product IDs (App Store Connect + Google Play):
 - com.bmpcorpo.networth.premium_annual
 RevenueCat entitlement: "premium"
 RevenueCat offering: "default" with $rc_monthly + $rc_annual packages
+
+## 2026-05-21 — Tab navigation + Settings screen (Phase 7d)
+
+Restructured navigation from a flat native-stack into a bottom-tab navigator
+nested inside the RootStack:
+
+  RootStack (native-stack, headers hidden)
+  ├─ Tabs            ← bottom-tab navigator (Today / Dashboard / Settings)
+  ├─ Grid            ← pushed above the tabs ("+ Add" / first-run onboarding)
+  ├─ SnapshotDetail  ← pushed above the tabs
+  └─ Paywall         ← modal above the tabs
+
+Rationale: keeping Grid/SnapshotDetail/Paywall in the RootStack (not as tabs)
+means pushing them covers the tab bar automatically — no `tabBarStyle:
+{ display: "none" }` toggling per-route. Tab screens are typed with
+CompositeScreenProps<BottomTabScreenProps, NativeStackScreenProps<Root>> so they
+navigate to both sibling tabs and root screens type-safely.
+
+Onboarding/initial route: replaced Stack `initialRouteName` with
+NavigationContainer `initialState`. First run (no assets) seeds a back stack of
+[Tabs(Today), Grid] — the user lands on Grid and `goBack()` drops them into the
+tabs once they add an asset. With assets present, opens Dashboard (if any
+snapshot exists) or Today. This is why GridScreen's footer changed from
+navigate("Today") to goBack() — Grid is now always a pushed screen.
+
+Settings is reached via a TAB, not the gear-on-Dashboard originally sketched in
+PROGRESS 9.6. The Dashboard header "Today" link + gear placeholder were removed
+(redundant with the tab bar).
+
+### Dependencies pinned as direct deps (do not rely on transitive resolution)
+- @react-navigation/bottom-tabs ^7.16.1 — tab navigator (hard requirement)
+- @expo/vector-icons ^15.1.1 — tab bar + Settings row icons. Pinned explicitly:
+  it was NOT previously in node_modules, and nested resolution breaks when Expo
+  restructures node_modules across SDK bumps.
+- expo-constants ~18.0.13 — read app version/build in Settings (cleaner than
+  require("../../app.json")). Same pinning rationale.
+All installed via `npx expo install` (SDK-54-compatible versions).
+
+### Placeholders (resolve at ASO stage)
+- Support email: support@bmpcorpo.com — CONFIRM monitored before release.
+- Legal URLs: bmpcorpo.com/networth/{privacy,terms} — same as PaywallScreen.
+
+### Incidental fix
+- app.json had an invalid `"expo-sqlite"11` in `plugins` (stray edit) that broke
+  JSON parsing; restored to `"expo-sqlite"`.

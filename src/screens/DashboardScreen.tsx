@@ -1,5 +1,4 @@
 import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,7 +18,7 @@ import { getAllAssets } from "../db/assets";
 import { getAllSnapshots } from "../db/snapshots";
 import { useClockStore } from "../store/clockStore";
 import type { AssetLiability, Snapshot } from "../types";
-import type { RootStackParamList } from "../types/navigation";
+import type { DashboardScreenProps } from "../types/navigation";
 import {
   ASSET_CLASSES,
   aggregateByClass,
@@ -493,7 +492,7 @@ function LegendRowView({ row }: { row: LegendRow }) {
 }
 
 function DonutSection() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<DashboardScreenProps["navigation"]>();
   const mockDate = useClockStore((s) => s.mockDate);
   const [totals, setTotals] = useState<ClassTotals | null>(null);
 
@@ -859,7 +858,7 @@ function BreakdownBodyRow({
 }
 
 function UpgradeRow({ totalSnapshots }: { totalSnapshots: number }) {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<DashboardScreenProps["navigation"]>();
   return (
     <Pressable
       onPress={() => {
@@ -939,7 +938,7 @@ function BreakdownDateRow({
 }
 
 function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<DashboardScreenProps["navigation"]>();
   const mockDate = useClockStore((s) => s.mockDate);
   const isPaid = useIsPaid();
   const [rows, setRows] = useState<BreakdownRow[] | null>(null);
@@ -1054,7 +1053,7 @@ function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
 // ── Empty state ────────────────────────────────────────────────────────────
 
 function EmptyState() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<DashboardScreenProps["navigation"]>();
   return (
     <View
       style={{
@@ -1092,7 +1091,6 @@ function EmptyState() {
 // ── DashboardScreen ────────────────────────────────────────────────────────
 
 export function DashboardScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const mockDate = useClockStore((s) => s.mockDate);
 
@@ -1133,28 +1131,15 @@ export function DashboardScreen() {
         </View>
       )}
 
-      {/* Header */}
+      {/* Header — tab bar handles Today/Settings navigation now. */}
       <View
         style={{
           paddingTop: __DEV__ && mockDate !== null ? 12 : insets.top + 12,
           paddingHorizontal: HORIZONTAL_PADDING,
           paddingBottom: 24,
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
         }}
       >
         <Display>Dashboard</Display>
-        <Pressable
-          onPress={() => {
-            tapLight();
-            navigation.navigate("Today");
-          }}
-          hitSlop={12}
-        >
-          <Body className="text-accent">Today</Body>
-        </Pressable>
-        {/* Gear icon placeholder — added in Phase 9 Settings */}
       </View>
 
       {snapshots === null ? (

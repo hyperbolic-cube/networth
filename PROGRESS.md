@@ -161,6 +161,18 @@
 - [ ] If 0 snapshots: Dashboard shows "Your first lock window: {date}" with educational copy
 - [ ] If 1 snapshot: chart shows single point + "Lock more months to see your trend"
 
+### 7d — Tab navigation + Settings screen ✅
+- [x] Install @react-navigation/bottom-tabs (7.16.1), @expo/vector-icons (15.1.1), expo-constants (18.0.13) via npx expo install — all pinned as direct deps (DECISIONS.md 2026-05-21)
+- [x] Navigation restructured: RootStack (native-stack) now nests a bottom-tab navigator ("Tabs": Today / Dashboard / Settings). Grid, SnapshotDetail, Paywall live in the RootStack as siblings above Tabs, so pushing them covers the tab bar automatically (no display:none hacks)
+- [x] navigation.ts: added TabParamList; RootStackParamList.Tabs uses NavigatorScreenParams<TabParamList>; tab screens typed with CompositeScreenProps so they reach both the tab navigator and the parent stack
+- [x] App.tsx: replaced initialRouteName string with NavigationContainer initialState. First run (no assets) seeds [Tabs(Today), Grid] so onboarding shows Grid and can goBack() into the tabs; otherwise opens Dashboard (has snapshots) or Today
+- [x] GridScreen: "View Today" footer now navigation.goBack() (was navigate("Today")); dev "Seed Dashboard" uses navigate("Tabs", { screen: "Dashboard" })
+- [x] DashboardScreen: removed redundant header "Today" link + gear placeholder (tab bar replaces both); useNavigation typed via composite
+- [x] New SettingsScreen.tsx (Settings tab): subscription status (Free/Premium), Upgrade→Paywall (free) / Manage subscription deep link (paid), Restore purchases, Contact support (mailto), Privacy + Terms links, app Version (build) via expo-constants
+- [x] Support email (support@bmpcorpo.com) + Privacy/Terms URLs are placeholders pending ASO — CONFIRM support address is monitored before release
+- [x] Fixed pre-existing invalid app.json (stray `"expo-sqlite"11` in plugins) that broke JSON parsing
+- [x] npx tsc --noEmit clean
+
 ## Phase 9: Paywall + In-App Purchases (BEFORE Phase 8 polish)
 
 ## Phase 9.1: Pricing research ✅
@@ -195,12 +207,13 @@
 - [x] Subscribe to entitlement changes — addCustomerInfoUpdateListener fires _setFromCustomerInfo on purchase/expire/restore
 - [x] Helper utils: useIsPaid() hook + getPaywallTrigger(reason) non-hook utility (src/utils/entitlement.ts)
 
-### 9.6 — Settings screen (basic)
-- [ ] New SettingsScreen.tsx — accessed via gear icon on Dashboard
-- [ ] Current subscription status display
-- [ ] Manage subscription button (links to App Store / Play Store subscription page)
-- [ ] Restore purchases button (duplicate from paywall)
-- [ ] App version + build number
+### 9.6 — Settings screen (basic) ✅ (shipped in Phase 7d)
+- [x] New SettingsScreen.tsx — accessed via Settings TAB (changed from gear-on-Dashboard; tab bar landed in 7d)
+- [x] Current subscription status display (Free plan / Premium)
+- [x] Manage subscription button (links to App Store / Play Store subscription page; Platform.select)
+- [x] Restore purchases button (duplicate from paywall; guards Purchases.isConfigured)
+- [x] App version + build number (expo-constants: expoConfig.version + nativeBuildVersion)
+- [x] Bonus: Contact support (mailto), Privacy + Terms links (placeholder URLs)
 
 ### 9.7 — Sandbox testing
 - [ ] Apple sandbox tester accounts created

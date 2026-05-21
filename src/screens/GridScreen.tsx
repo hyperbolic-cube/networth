@@ -197,7 +197,7 @@ export function GridScreen() {
 
       setConfirm("Dashboard demo ready — 5 snapshots");
       setTimeout(() => setConfirm(null), 3000);
-      navigation.navigate("Dashboard");
+      navigation.navigate("Tabs", { screen: "Dashboard" });
     } catch (err) {
       console.warn("[GridScreen debug] seed dashboard:", err);
       setConfirm("Seed failed — see logs");
@@ -465,7 +465,7 @@ export function GridScreen() {
           <Pressable
             onPress={() => {
               tapLight();
-              navigation.navigate("Today");
+              navigation.goBack();
             }}
             style={{
               backgroundColor: "#0A84FF",

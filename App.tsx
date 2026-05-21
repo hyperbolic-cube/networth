@@ -2,7 +2,10 @@ import "react-native-gesture-handler";
 import "./src/global.css";
 
 import { NavigationContainer } from "@react-navigation/native";
+import type { InitialState } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
@@ -16,13 +19,14 @@ import { getLatestSnapshot } from "./src/db/snapshots";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { GridScreen } from "./src/screens/GridScreen";
 import { PaywallScreen } from "./src/screens/PaywallScreen";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { SnapshotDetailScreen } from "./src/screens/SnapshotDetailScreen";
 import { TodayScreen } from "./src/screens/TodayScreen";
 import { useAssetsStore } from "./src/store/assetsStore";
 import { useEntitlementStore } from "./src/store/entitlementStore";
 import { getMissedMonths, autoFillMissedSnapshots } from "./src/utils/autofill";
 import { initClock } from "./src/utils/clock";
-import type { RootStackParamList } from "./src/types/navigation";
+import type { RootStackParamList, TabParamList } from "./src/types/navigation";
 
 async function initRevenueCat(): Promise<void> {
   const apiKey =
@@ -48,12 +52,43 @@ function setupRCListener(): void {
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
 
-type InitialRoute = "Grid" | "Today" | "Dashboard";
+// Active/inactive Ionicons per tab.
+const TAB_ICON: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
+  Today: "wallet",
+  Dashboard: "stats-chart",
+  Settings: "settings-sharp",
+};
+
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      initialRouteName="Today"
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: "#0A84FF",
+        tabBarInactiveTintColor: "#8E8E93",
+        tabBarStyle: {
+          backgroundColor: "#1C1C1E",
+          borderTopColor: "#2C2C2E",
+        },
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name={TAB_ICON[route.name]} size={size} color={color} />
+        ),
+      })}
+    >
+      <Tab.Screen name="Today" component={TodayScreen} />
+      <Tab.Screen name="Dashboard" component={DashboardScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
+    </Tab.Navigator>
+  );
+}
 
 export default function App() {
   const [ready, setReady] = useState(false);
-  const [initialRoute, setInitialRoute] = useState<InitialRoute>("Grid");
+  // undefined until init resolves which tab/onboarding state to land on.
+  const [initialState, setInitialState] = useState<InitialState | undefined>(undefined);
   const [autoFillProgress, setAutoFillProgress] = useState<{
     current: number;
     total: number;
@@ -87,13 +122,22 @@ export default function App() {
         await useEntitlementStore.getState().refresh();
         const hasAssets = useAssetsStore.getState().items.length > 0;
 
-        if (!hasAssets) {
-          setInitialRoute("Grid");
-        } else if (latest === null) {
-          setInitialRoute("Today");
-        } else {
-          setInitialRoute("Dashboard");
-        }
+        // Which tab boots first: history if any snapshot exists, else Today.
+        const initialTab = latest !== null ? "Dashboard" : "Today";
+
+        // First run (no assets): seed the Grid above the Today tab so the user
+        // lands on onboarding and can goBack() into the tabs once they add an
+        // asset. Otherwise just open the chosen tab.
+        setInitialState(
+          hasAssets
+            ? { routes: [{ name: "Tabs", state: { routes: [{ name: initialTab }] } }] }
+            : {
+                routes: [
+                  { name: "Tabs", state: { routes: [{ name: "Today" }] } },
+                  { name: "Grid" },
+                ],
+              }
+        );
       } catch (err) {
         console.error("[App] init failed:", err);
       } finally {
@@ -107,14 +151,10 @@ export default function App() {
       <SafeAreaProvider>
         <BottomSheetModalProvider>
           {ready ? (
-            <NavigationContainer>
-              <Stack.Navigator
-                initialRouteName={initialRoute}
-                screenOptions={{ headerShown: false }}
-              >
+            <NavigationContainer initialState={initialState}>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Tabs" component={MainTabs} />
                 <Stack.Screen name="Grid" component={GridScreen} />
-                <Stack.Screen name="Today" component={TodayScreen} />
-                <Stack.Screen name="Dashboard" component={DashboardScreen} />
                 <Stack.Screen name="SnapshotDetail" component={SnapshotDetailScreen} />
                 <Stack.Screen
                   name="Paywall"

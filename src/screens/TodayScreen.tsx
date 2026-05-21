@@ -1,5 +1,4 @@
 import { useNavigation } from "@react-navigation/native";
-import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -44,7 +43,7 @@ import {
 } from "../utils/lockWindow";
 import { applyAmortization } from "../utils/amortization";
 import { useIsPaid } from "../utils/entitlement";
-import type { RootStackParamList } from "../types/navigation";
+import type { TodayScreenProps } from "../types/navigation";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -116,7 +115,7 @@ type RowEntry = { computed: ComputedItem; status: RowStatus };
 // ── TodayScreen ────────────────────────────────────────────────────────────
 
 export function TodayScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const navigation = useNavigation<TodayScreenProps["navigation"]>();
   const insets = useSafeAreaInsets();
   const items = useAssetsStore((s) => s.items);
   const mockDate = useClockStore((s) => s.mockDate);
