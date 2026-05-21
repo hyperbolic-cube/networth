@@ -29,6 +29,7 @@ import {
 } from "../utils/assetClass";
 import { formatHeroMoney, monthDayYearLabel } from "../utils/format";
 import { tapLight } from "../utils/haptics";
+import { useIsPaid } from "../utils/entitlement";
 
 // ── Theme constants ───────────────────────────────────────────────────────
 
@@ -940,6 +941,7 @@ function BreakdownDateRow({
 function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const mockDate = useClockStore((s) => s.mockDate);
+  const isPaid = useIsPaid();
   const [rows, setRows] = useState<BreakdownRow[] | null>(null);
 
   useEffect(() => {
@@ -983,7 +985,7 @@ function BreakdownTableSection({ snapshots }: { snapshots: Snapshot[] }) {
     );
   }
 
-  const isCapped = rows.length > BREAKDOWN_FREE_LIMIT;
+  const isCapped = !isPaid && rows.length > BREAKDOWN_FREE_LIMIT;
   // Oldest-first ordering. When capped we still show the most recent N
   // (free tier must show recent data — paywall gates history, not the present).
   // The upgrade prompt sits at the TOP, where the older hidden rows would be.
