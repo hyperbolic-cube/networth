@@ -32,6 +32,13 @@ export const useEntitlementStore = create<EntitlementState>((set, get) => ({
   },
 
   _setFromCustomerInfo(info) {
+    if (__DEV__) {
+      console.log('[entitlement DEBUG] active entitlements:', Object.keys(info.entitlements.active));
+      console.log('[entitlement DEBUG] all entitlements:', Object.keys(info.entitlements.all));
+      console.log('[entitlement DEBUG] active subscriptions:', info.activeSubscriptions);
+      console.log('[entitlement DEBUG] checking for PREMIUM_ENTITLEMENT_ID:', PREMIUM_ENTITLEMENT_ID);
+      console.log('[entitlement DEBUG] isPaid result:', PREMIUM_ENTITLEMENT_ID in info.entitlements.active);
+    }
     const isPaid = PREMIUM_ENTITLEMENT_ID in info.entitlements.active;
     set({ isPaid, customerInfo: info, isLoading: false });
   },
