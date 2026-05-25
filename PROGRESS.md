@@ -153,9 +153,9 @@
 
 ### 7.5 — Snapshot detail view (full content)
 - [x] Routing stub shipped in 7b.3 (back button + Edit→paywall alert)
-- [ ] Phase 7c: render snapshot_items list with name/type/values
-- [ ] Phase 7c: read-only view of historical lock state
-- [ ] Phase 9: Edit button routes to paywall when not paid
+- [x] Phase 7c: render snapshot_items list with name/type/values, grouped by class (commit e59c16a)
+- [x] Phase 7c: read-only view of historical lock state (commit e59c16a)
+- [x] Phase 9: Edit button routes to paywall when not paid (edit_locked trigger, commit ee236dc)
 
 ### 7.6 — Empty state
 - [ ] If 0 snapshots: Dashboard shows "Your first lock window: {date}" with educational copy
@@ -181,25 +181,32 @@
 - [x] Update DECISIONS.md with final pricing (2026-05-20 entry)
 
 ### 9.2 — RevenueCat integration
-- [x] Install react-native-purchases + react-native-purchases-ui (v10.1.1 via npx expo install; config plugin added to app.json)
-- [ ] App Store Connect: create subscription products, screenshots, descriptions
-- [ ] Google Play Console: same setup for Android
-- [ ] RevenueCat dashboard: connect both stores, configure products
+- [x] Install react-native-purchases + react-native-purchases-ui (v10.1.1 via npx expo install; NO config plugin — RC v10 uses Expo autolinking; adding to app.json plugins causes PluginError; see DECISIONS.md 2026-05-22)
+- [x] App Store Connect: Subscription Group "NetWorth Premium" created; monthly (com.bmpcorpo.networth.premium_monthly $4.99) + annual (com.bmpcorpo.networth.premium_annual $29.99) products; Review Info + review screenshot uploaded
+- [ ] Google Play Console: same setup for Android (not yet done)
+- [x] RevenueCat dashboard CONNECTED: products linked, entitlement "premium", offering "default" with $rc_monthly + $rc_annual packages, App Store Connect API key uploaded
 - [x] App.tsx init: initRevenueCat() (EXPO_PUBLIC_ env keys, warn-and-return if missing) + setupRCListener() after initClock()
 
 ### 9.3 — Paywall screen
-- [ ] New PaywallScreen.tsx — full-screen modal
-- [ ] Three-section design: hero benefit list ("Unlimited assets, unlimited history, edit any snapshot, export to CSV"), pricing card (monthly + annual), purchase + restore buttons
-- [ ] Restore purchases button (Apple requirement)
-- [ ] Privacy policy + terms links (Apple requirement)
-- [ ] Loading states for purchase flow
-- [ ] Error states for purchase failures
+- [x] New PaywallScreen.tsx — full-screen modal (commit ee236dc)
+- [x] Three-section design: hero benefit list, pricing card (monthly + annual), purchase + restore buttons
+- [x] Restore purchases button (Apple requirement)
+- [x] Privacy policy + terms links (placeholder URLs; live URLs pending ASO — Phase 10)
+- [x] Loading states for purchase flow
+- [x] Error states for purchase failures
 
 ### 9.4 — Paywall triggers wiring
-- [ ] GridScreen: tap on tile when `getAssetsCount() >= 3 && !isPaid()` → PaywallScreen
-- [ ] TodayScreen: Lock button when `getSnapshotCount() >= 3 && !isPaid()` → PaywallScreen (override the lock action)
-- [ ] SnapshotDetailScreen: Edit button when `!isPaid()` → PaywallScreen
-- [ ] BreakdownTable: Export CSV button when `!isPaid()` → PaywallScreen
+- [x] GridScreen: asset_limit trigger — tap tile when assets >= 3 && !isPaid → PaywallScreen (commit ee236dc)
+- [x] TodayScreen: snapshot_limit trigger — Lock when snapshots >= 3 && !isPaid → PaywallScreen (commit ee236dc)
+- [x] SnapshotDetailScreen: edit_locked trigger — Edit button when !isPaid → PaywallScreen (commit ee236dc)
+- [x] BreakdownTable: upgrade row trigger — "Upgrade to see all N snapshots →" prompt at top when !isPaid → PaywallScreen (replaces original "Export CSV" stub; commit ee236dc)
+
+### 9 — Verified milestones (2026-05-25)
+- [x] SANDBOX PURCHASE END-TO-END: annual subscription purchased, entitlement "premium" activated, isPaid=true confirmed via [entitlement] diagnostic logs
+- [x] Breakdown table unlocks all rows for paid users (fix — commit a976aeb)
+- [x] Dev isPaid override toggle — __DEV__-only, entitlement section in dev panel (commit e29a5f9)
+
+> **CRITICAL — on-device assistants and future sessions:** react-native-purchases is NOT in app.json plugins by design. RC v10 uses Expo autolinking and has NO config plugin. Adding it to plugins causes PluginError. Verified: sandbox purchase works without any plugin entry. See DECISIONS.md 2026-05-22.
 
 ### 9.5 — Paid state plumbing
 - [x] Zustand store slice: useEntitlementStore with `isPaid: boolean`, updates via RevenueCat listener (src/store/entitlementStore.ts)
@@ -216,10 +223,10 @@
 - [x] Bonus: Contact support (mailto), Privacy + Terms links (placeholder URLs)
 
 ### 9.7 — Sandbox testing
-- [ ] Apple sandbox tester accounts created
-- [ ] Test purchase flow on iOS Simulator + real device
+- [x] Apple sandbox tester account created and used
+- [x] Test purchase flow on real iOS device — annual purchase completed, "premium" entitlement activated, isPaid=true confirmed
 - [ ] Test purchase flow on Android emulator + real device
-- [ ] Test restore purchases (delete + reinstall app, restore should bring back paid status)
+- [ ] Test restore purchases (uninstall → reinstall → restore — code exists, not yet tested on device)
 - [ ] Test subscription expiration / renewal scenarios
 
 ## Phase 8: Polish (LAST before release)

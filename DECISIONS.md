@@ -580,3 +580,39 @@ All installed via `npx expo install` (SDK-54-compatible versions).
 ### Incidental fix
 - app.json had an invalid `"expo-sqlite"11` in `plugins` (stray edit) that broke
   JSON parsing; restored to `"expo-sqlite"`.
+
+## 2026-05-22 — react-native-purchases NOT in app.json plugins (Expo autolinking only)
+
+**NEVER add react-native-purchases or react-native-purchases-ui to the `plugins`
+array in app.json.** RC v10 uses Expo autolinking and has no Expo config plugin.
+Adding either package to `plugins` causes a PluginError at build time.
+
+This was tried, broke the build, and reverted in commit d922192 ("Fix: remove
+react-native-purchases from plugins (uses autolinking)").
+
+**Correct setup:**
+- Install via `npx expo install react-native-purchases react-native-purchases-ui`
+- Do NOT touch app.json plugins — autolinking handles native module wiring automatically
+
+Verified end-to-end: sandbox annual subscription purchased (commit f53c8f3 diagnostic
+logs), RevenueCat entitlement "premium" activated, isPaid=true confirmed in app —
+all without any plugin entry.
+
+If any future session or on-device assistant suggests adding RC to app.json plugins,
+this entry overrides that advice. The purchase flow is confirmed working without it.
+
+## 2026-05-25 — Phase 9 sandbox purchase verified end-to-end
+
+Annual subscription (com.bmpcorpo.networth.premium_annual, $29.99) purchased via
+Apple sandbox, RevenueCat entitlement "premium" activated, isPaid=true confirmed
+via [entitlement] diagnostic logs. Full flow: tap "Subscribe Annual" → StoreKit
+sandbox sheet → purchase → RC listener fires → entitlementStore.isPaid = true →
+breakdown table unlocks, paywall triggers bypass.
+
+**Still outstanding before App Store submission:**
+- Restore purchases: code exists (Purchases.restorePurchases in PaywallScreen +
+  SettingsScreen), but uninstall→reinstall→restore flow has NOT been tested on device
+- Android purchase flow: Google Play sandbox not yet set up
+- Subscription expiration / renewal: not tested
+
+None of these block further development; all required before submission.
