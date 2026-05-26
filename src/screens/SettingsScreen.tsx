@@ -36,8 +36,8 @@ const HORIZONTAL_PADDING = 24;
 // 2026-05-21). Confirm support@bmpcorpo.com is monitored before release.
 
 const SUPPORT_EMAIL = "support@bmpcorpo.com";
-const TERMS_URL = "https://bmpcorpo.com/networth/terms";
-const PRIVACY_URL = "https://bmpcorpo.com/networth/privacy";
+const TERMS_URL = "https://hyperbolic-cube.github.io/networth-legal/terms.html";
+const PRIVACY_URL = "https://hyperbolic-cube.github.io/networth-legal/privacy.html";
 const MANAGE_SUBSCRIPTION_URL = Platform.select({
   ios: "https://apps.apple.com/account/subscriptions",
   android: "https://play.google.com/store/account/subscriptions",

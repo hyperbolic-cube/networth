@@ -28,8 +28,8 @@ const TEXT_SECONDARY = "#8E8E93";
 const FINE_PRINT = "#636366";
 const BORDER = "#3A3A3C";
 
-const TERMS_URL = "https://bmpcorpo.com/networth/terms";
-const PRIVACY_URL = "https://bmpcorpo.com/networth/privacy";
+const TERMS_URL = "https://hyperbolic-cube.github.io/networth-legal/terms.html";
+const PRIVACY_URL = "https://hyperbolic-cube.github.io/networth-legal/privacy.html";
 
 // ── Context-aware copy ───────────────────────────────────────────────────────
 
