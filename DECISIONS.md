@@ -574,7 +574,7 @@ PROGRESS 9.6. The Dashboard header "Today" link + gear placeholder were removed
 All installed via `npx expo install` (SDK-54-compatible versions).
 
 ### Placeholders (resolve at ASO stage)
-- Support email: support@bmpcorpo.com — CONFIRM monitored before release.
+- Support email: bmpcorporation@gmail.com — CONFIRM monitored before release.
 - Legal URLs: bmpcorpo.com/networth/{privacy,terms} — same as PaywallScreen.
 
 ### Incidental fix

@@ -169,7 +169,7 @@
 - [x] GridScreen: "View Today" footer now navigation.goBack() (was navigate("Today")); dev "Seed Dashboard" uses navigate("Tabs", { screen: "Dashboard" })
 - [x] DashboardScreen: removed redundant header "Today" link + gear placeholder (tab bar replaces both); useNavigation typed via composite
 - [x] New SettingsScreen.tsx (Settings tab): subscription status (Free/Premium), Upgrade→Paywall (free) / Manage subscription deep link (paid), Restore purchases, Contact support (mailto), Privacy + Terms links, app Version (build) via expo-constants
-- [x] Support email (support@bmpcorpo.com) + Privacy/Terms URLs are placeholders pending ASO — CONFIRM support address is monitored before release
+- [x] Support email (bmpcorporation@gmail.com) + Privacy/Terms URLs are placeholders pending ASO — CONFIRM support address is monitored before release
 - [x] Fixed pre-existing invalid app.json (stray `"expo-sqlite"11` in plugins) that broke JSON parsing
 - [x] npx tsc --noEmit clean
 

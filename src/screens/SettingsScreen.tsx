@@ -33,9 +33,9 @@ const HORIZONTAL_PADDING = 24;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 // Support address + legal URLs are placeholders pending ASO (DECISIONS.md
-// 2026-05-21). Confirm support@bmpcorpo.com is monitored before release.
+// 2026-05-21). Confirm bmpcorporation@gmail.com is monitored before release.
 
-const SUPPORT_EMAIL = "support@bmpcorpo.com";
+const SUPPORT_EMAIL = "bmpcorporation@gmail.com";
 const TERMS_URL = "https://hyperbolic-cube.github.io/networth-legal/terms.html";
 const PRIVACY_URL = "https://hyperbolic-cube.github.io/networth-legal/privacy.html";
 const MANAGE_SUBSCRIPTION_URL = Platform.select({
