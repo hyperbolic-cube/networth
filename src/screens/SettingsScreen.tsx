@@ -129,6 +129,19 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   const insets = useSafeAreaInsets();
   const isPaid = useIsPaid();
   const [restoring, setRestoring] = useState(false);
+  const customerInfo = useEntitlementStore((s) => s.customerInfo);
+  const devPaidOverride = useEntitlementStore((s) => s.devPaidOverride);
+
+  const isDevOverride = __DEV__ && devPaidOverride === true && isPaid;
+  const subscriptionLabel = (() => {
+    if (!isPaid) return "Free plan";
+    if (isDevOverride) return "Premium (dev override)";
+    const productId = customerInfo?.entitlements.active["premium"]?.productIdentifier ?? "";
+    if (productId.includes("annual")) return "Premium — Annual";
+    if (productId.includes("monthly")) return "Premium — Monthly";
+    return "Premium";
+  })();
+  const starColor = isPaid ? (isDevOverride ? "#FFD60A" : POSITIVE) : TEXT_SECONDARY;
 
   async function handleRestore() {
     tapLight();
@@ -187,12 +200,12 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             <Ionicons
               name={isPaid ? "star" : "star-outline"}
               size={20}
-              color={isPaid ? POSITIVE : TEXT_SECONDARY}
+              color={starColor}
               style={{ marginRight: 14 }}
             />
             <View style={{ flex: 1 }}>
-              <Body className="font-semibold">
-                {isPaid ? "Premium" : "Free plan"}
+              <Body className="font-semibold" style={isDevOverride ? { color: "#FFD60A" } : undefined}>
+                {subscriptionLabel}
               </Body>
               <Caption style={{ marginTop: 2 }}>
                 {isPaid

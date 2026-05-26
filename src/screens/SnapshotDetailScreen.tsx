@@ -396,7 +396,7 @@ export function SnapshotDetailScreen({
             if (!isPaid) {
               navigation.navigate("Paywall", { reason: "edit_locked" });
             } else {
-              Alert.alert("Edit snapshot", "Edit flow coming in Phase 7c.");
+              Alert.alert("Coming soon", "Snapshot editing is coming in a future update.");
             }
           }}
           hitSlop={12}
