@@ -242,62 +242,84 @@ export function TodayScreen() {
 
   function handleSave(value: number) {
     if (!editTarget) return;
+    // Guard against non-finite values reaching the DB / amortization math.
+    if (!Number.isFinite(value)) {
+      Alert.alert("Invalid value", "Please enter a valid number.");
+      return;
+    }
     const { item, field } = editTarget;
     const store = useAssetsStore.getState();
 
-    if (field === "manual_price") {
-      // Ephemeral override — do not persist.
-      const meta = item.metadata as BrokerMetadata;
-      const total = value * meta.quantity;
-      setRowMap((prev) => ({
-        ...prev,
-        [item.id]: {
-          computed: {
-            ...item,
-            computed_value_usd: total,
-            value_in_original_currency: total,
-            exchange_rate_to_usd: 1,
+    try {
+      if (field === "manual_price") {
+        // Ephemeral override — do not persist.
+        const meta = item.metadata as BrokerMetadata;
+        const qty = Number.isFinite(meta.quantity) ? meta.quantity : 0;
+        const total = value * qty;
+        setRowMap((prev) => ({
+          ...prev,
+          [item.id]: {
+            computed: {
+              ...item,
+              computed_value_usd: total,
+              value_in_original_currency: total,
+              exchange_rate_to_usd: 1,
+            },
+            status: "override",
           },
-          status: "override",
-        },
-      }));
-      return;
-    }
+        }));
+        return;
+      }
 
-    if (field === "amount") {
-      store.update(item.id, { metadata: { amount: value } });
-      return;
-    }
+      if (field === "amount") {
+        store.update(item.id, { metadata: { amount: value } });
+        return;
+      }
 
-    if (field === "price_per_sqm") {
-      const meta = item.metadata as RealEstateMetadata;
-      store.update(item.id, {
-        metadata: { sqm: meta.sqm, price_per_sqm: value },
-      });
-      return;
-    }
+      if (field === "price_per_sqm") {
+        const meta = item.metadata as RealEstateMetadata;
+        store.update(item.id, {
+          metadata: { sqm: meta.sqm, price_per_sqm: value },
+        });
+        return;
+      }
 
-    if (field === "quantity") {
-      const meta = item.metadata as BrokerMetadata;
-      store.update(item.id, {
-        metadata: {
-          instrumentType: meta.instrumentType,
-          ticker: meta.ticker,
-          quantity: value,
-        },
-      });
-      return;
-    }
+      if (field === "quantity") {
+        const meta = item.metadata as BrokerMetadata;
+        store.update(item.id, {
+          metadata: {
+            instrumentType: meta.instrumentType,
+            ticker: meta.ticker,
+            quantity: value,
+          },
+        });
+        return;
+      }
 
-    if (field === "principal") {
-      const meta = item.metadata as LiabilityMetadata;
-      store.update(item.id, {
-        metadata: {
-          principal: value,
-          interest_rate: meta.interest_rate,
-          monthly_payment: meta.monthly_payment,
-        },
-      });
+      if (field === "principal") {
+        const meta = item.metadata as LiabilityMetadata;
+        // Defensive defaults: older rows may have non-finite rate/payment which
+        // would NaN-poison amortization on the next lock.
+        const safeRate = Number.isFinite(meta.interest_rate)
+          ? meta.interest_rate
+          : 0;
+        const safePayment = Number.isFinite(meta.monthly_payment)
+          ? meta.monthly_payment
+          : 0;
+        store.update(item.id, {
+          metadata: {
+            principal: value,
+            interest_rate: safeRate,
+            monthly_payment: safePayment,
+          },
+        });
+      }
+    } catch (err) {
+      console.error("[TodayScreen] handleSave failed:", err);
+      Alert.alert(
+        "Couldn't save",
+        err instanceof Error ? err.message : "Please try again."
+      );
     }
   }
 

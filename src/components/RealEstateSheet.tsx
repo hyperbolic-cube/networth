@@ -1,6 +1,6 @@
 import { BottomSheetModal, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { forwardRef, useState } from "react";
-import { View } from "react-native";
+import { Alert, View } from "react-native";
 import { MoneyInput } from "./MoneyInput";
 import { SegmentedToggle } from "./SegmentedToggle";
 import { SheetScaffold } from "./SheetScaffold";
@@ -35,9 +35,11 @@ export const RealEstateSheet = forwardRef<
 
   const sqmNum = Number(sqm);
   const priceNum = Number(pricePerSqm);
-  const total = sqmNum > 0 && priceNum > 0 ? sqmNum * priceNum : null;
+  const sqmValid = Number.isFinite(sqmNum) && sqmNum > 0;
+  const priceValid = Number.isFinite(priceNum) && priceNum > 0;
+  const total = sqmValid && priceValid ? sqmNum * priceNum : null;
 
-  const isValid = name.trim().length > 0 && sqmNum > 0 && priceNum > 0;
+  const isValid = name.trim().length > 0 && sqmValid && priceValid;
 
   /** Format a number with thousands separators, no decimals. */
   function fmt(n: number): string {
@@ -45,20 +47,39 @@ export const RealEstateSheet = forwardRef<
   }
 
   async function handleSave() {
-    if (!isValid) return;
-    await useAssetsStore.getState().add({
-      type: "REAL_ESTATE",
-      name: name.trim(),
-      currency,
-      metadata: { sqm: sqmNum, price_per_sqm: priceNum },
-    });
-    // Reset form.
-    setName("");
-    setSqm("");
-    setPricePerSqm("");
-    setCurrency("USD");
-    (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
-    onSaved?.();
+    if (name.trim().length === 0) {
+      Alert.alert("Missing name", "Please enter a property name.");
+      return;
+    }
+    if (!sqmValid) {
+      Alert.alert("Invalid area", "Please enter a valid area in m².");
+      return;
+    }
+    if (!priceValid) {
+      Alert.alert("Invalid price", "Please enter a valid price per m².");
+      return;
+    }
+    try {
+      await useAssetsStore.getState().add({
+        type: "REAL_ESTATE",
+        name: name.trim(),
+        currency,
+        metadata: { sqm: sqmNum, price_per_sqm: priceNum },
+      });
+      // Reset form.
+      setName("");
+      setSqm("");
+      setPricePerSqm("");
+      setCurrency("USD");
+      (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
+      onSaved?.();
+    } catch (err) {
+      console.error("[RealEstateSheet] save failed:", err);
+      Alert.alert(
+        "Couldn't save",
+        err instanceof Error ? err.message : "Please try again."
+      );
+    }
   }
 
   return (

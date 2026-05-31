@@ -3,7 +3,7 @@ import { forwardRef, useEffect, useState } from "react";
 import { MoneyInput } from "./MoneyInput";
 import { SheetScaffold } from "./SheetScaffold";
 import { Caption } from "./Typography";
-import { View } from "react-native";
+import { Alert, View } from "react-native";
 
 // ── EditValueSheet ─────────────────────────────────────────────────────────
 //
@@ -32,12 +32,21 @@ export const EditValueSheet = forwardRef<BottomSheetModal, EditValueSheetProps>(
     }, [initialValue]);
 
     const numericValue = Number(value);
-    const submitDisabled = !(numericValue > 0) || isNaN(numericValue);
+    const submitDisabled =
+      !Number.isFinite(numericValue) || numericValue <= 0;
 
     function handleSave() {
       if (submitDisabled) return;
-      onSave(numericValue);
-      (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
+      try {
+        onSave(numericValue);
+        (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
+      } catch (err) {
+        console.error("[EditValueSheet] save failed:", err);
+        Alert.alert(
+          "Couldn't save",
+          err instanceof Error ? err.message : "Please try again."
+        );
+      }
     }
 
     return (

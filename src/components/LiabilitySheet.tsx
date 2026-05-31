@@ -1,6 +1,6 @@
 import { BottomSheetModal, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { forwardRef, useState } from "react";
-import { View } from "react-native";
+import { Alert, View } from "react-native";
 import { MoneyInput } from "./MoneyInput";
 import { SegmentedToggle } from "./SegmentedToggle";
 import { SheetScaffold } from "./SheetScaffold";
@@ -57,32 +57,61 @@ export const LiabilitySheet = forwardRef<BottomSheetModal, LiabilitySheetProps>(
     const [monthlyPayment, setMonthlyPayment] = useState("");
     const [currency, setCurrency] = useState("USD");
 
+    const parsedPrincipal = Number(principal);
+    const parsedRate = Number(interestRate);
+    const parsedPayment = Number(monthlyPayment);
     const isValid =
       name.trim().length > 0 &&
-      Number(principal) > 0 &&
-      Number(interestRate) >= 0 &&
-      Number(monthlyPayment) > 0;
+      Number.isFinite(parsedPrincipal) &&
+      parsedPrincipal > 0 &&
+      Number.isFinite(parsedRate) &&
+      parsedRate >= 0 &&
+      Number.isFinite(parsedPayment) &&
+      parsedPayment > 0;
 
     async function handleSave() {
-      if (!isValid) return;
-      await useAssetsStore.getState().add({
-        type: liabilityType,
-        name: name.trim(),
-        currency,
-        metadata: {
-          principal: Number(principal),
-          interest_rate: Number(interestRate),
-          monthly_payment: Number(monthlyPayment),
-        },
-      });
-      // Reset form.
-      setName("");
-      setPrincipal("");
-      setInterestRate("");
-      setMonthlyPayment("");
-      setCurrency("USD");
-      (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
-      onSaved?.();
+      if (name.trim().length === 0) {
+        Alert.alert("Missing name", "Please enter a name.");
+        return;
+      }
+      if (!Number.isFinite(parsedPrincipal) || parsedPrincipal <= 0) {
+        Alert.alert("Invalid principal", "Please enter a valid principal amount.");
+        return;
+      }
+      if (!Number.isFinite(parsedRate) || parsedRate < 0) {
+        Alert.alert("Invalid interest rate", "Please enter a valid annual rate (0 or higher).");
+        return;
+      }
+      if (!Number.isFinite(parsedPayment) || parsedPayment <= 0) {
+        Alert.alert("Invalid monthly payment", "Please enter a valid monthly payment.");
+        return;
+      }
+      try {
+        await useAssetsStore.getState().add({
+          type: liabilityType,
+          name: name.trim(),
+          currency,
+          metadata: {
+            principal: parsedPrincipal,
+            interest_rate: parsedRate,
+            monthly_payment: parsedPayment,
+          },
+        });
+        // Reset form.
+        setName("");
+        setPrincipal("");
+        setInterestRate("");
+        setMonthlyPayment("");
+        setCurrency("USD");
+        (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
+        onSaved?.();
+      } catch (err) {
+        console.error("[LiabilitySheet] save failed:", err);
+        Alert.alert(
+          "Couldn't save",
+          err instanceof Error ? err.message : "Please try again."
+        );
+      }
     }
 
     return (

@@ -14,6 +14,7 @@ import Purchases, { LOG_LEVEL } from "react-native-purchases";
 import type { CustomerInfo } from "react-native-purchases";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ErrorBoundary } from "./src/components/ErrorBoundary";
 import { initDatabase } from "./src/db/schema";
 import { getLatestSnapshot } from "./src/db/snapshots";
 import { DashboardScreen } from "./src/screens/DashboardScreen";
@@ -253,18 +254,20 @@ export default function App() {
             />
           )}
           {ready ? (
-            <NavigationContainer initialState={initialState}>
-              <Stack.Navigator screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="Tabs" component={MainTabs} />
-                <Stack.Screen name="Grid" component={GridScreen} />
-                <Stack.Screen name="SnapshotDetail" component={SnapshotDetailScreen} />
-                <Stack.Screen
-                  name="Paywall"
-                  component={PaywallScreen}
-                  options={{ presentation: "modal", headerShown: false, gestureEnabled: true }}
-                />
-              </Stack.Navigator>
-            </NavigationContainer>
+            <ErrorBoundary>
+              <NavigationContainer initialState={initialState}>
+                <Stack.Navigator screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="Tabs" component={MainTabs} />
+                  <Stack.Screen name="Grid" component={GridScreen} />
+                  <Stack.Screen name="SnapshotDetail" component={SnapshotDetailScreen} />
+                  <Stack.Screen
+                    name="Paywall"
+                    component={PaywallScreen}
+                    options={{ presentation: "modal", headerShown: false, gestureEnabled: true }}
+                  />
+                </Stack.Navigator>
+              </NavigationContainer>
+            </ErrorBoundary>
           ) : (
             <View className="flex-1 bg-background items-center justify-center gap-y-4">
               <Text className="text-textPrimary text-2xl font-bold">

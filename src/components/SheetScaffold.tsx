@@ -26,8 +26,10 @@ interface SheetScaffoldProps {
 
 /**
  * Consistent bottom-sheet chrome for all asset/liability input sheets.
- * Single snap point at 85%, pan-down-to-close, interactive keyboard handling.
- * Pass a ref to get access to .present() / .dismiss().
+ * Full-height snap point so the inner ScrollView has room to scroll the Save
+ * button into view when the keyboard is up (with keyboardBehavior="interactive"
+ * the sheet itself shifts above the keyboard, but content shorter than the
+ * remaining space can otherwise clip the bottom button).
  */
 export const SheetScaffold = forwardRef<BottomSheetModal, SheetScaffoldProps>(
   function SheetScaffold(
@@ -46,7 +48,7 @@ export const SheetScaffold = forwardRef<BottomSheetModal, SheetScaffoldProps>(
     return (
       <BottomSheetModal
         ref={ref}
-        snapPoints={["85%"]}
+        snapPoints={["100%"]}
         enablePanDownToClose
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
@@ -58,8 +60,9 @@ export const SheetScaffold = forwardRef<BottomSheetModal, SheetScaffoldProps>(
           contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View className="px-6 pt-4 pb-6">
+          {/* Header — insets.top reserves space for status bar now that the
+              sheet snaps to full height. */}
+          <View style={{ paddingTop: insets.top }} className="px-6 pb-6">
             {emoji ? (
               <Display className="mb-1">
                 {emoji} {title}

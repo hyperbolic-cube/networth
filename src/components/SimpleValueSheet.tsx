@@ -1,6 +1,6 @@
 import { BottomSheetModal, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { forwardRef, useState } from "react";
-import { Text, View } from "react-native";
+import { Alert, View } from "react-native";
 import { MoneyInput } from "./MoneyInput";
 import { SegmentedToggle } from "./SegmentedToggle";
 import { SheetScaffold } from "./SheetScaffold";
@@ -72,22 +72,41 @@ export const SimpleValueSheet = forwardRef<
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("USD");
 
-  const isValid = name.trim().length > 0 && Number(amount) > 0;
+  const parsedAmount = Number(amount);
+  const isValid =
+    name.trim().length > 0 &&
+    Number.isFinite(parsedAmount) &&
+    parsedAmount > 0;
 
   async function handleSave() {
-    if (!isValid) return;
-    await useAssetsStore.getState().add({
-      type: assetType,
-      name: name.trim(),
-      currency,
-      metadata: { amount: Number(amount) },
-    });
-    // Reset form.
-    setName("");
-    setAmount("");
-    setCurrency("USD");
-    (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
-    onSaved?.();
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      Alert.alert("Invalid amount", "Please enter a valid amount.");
+      return;
+    }
+    if (name.trim().length === 0) {
+      Alert.alert("Missing name", "Please enter a name.");
+      return;
+    }
+    try {
+      await useAssetsStore.getState().add({
+        type: assetType,
+        name: name.trim(),
+        currency,
+        metadata: { amount: parsedAmount },
+      });
+      // Reset form.
+      setName("");
+      setAmount("");
+      setCurrency("USD");
+      (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
+      onSaved?.();
+    } catch (err) {
+      console.error("[SimpleValueSheet] save failed:", err);
+      Alert.alert(
+        "Couldn't save",
+        err instanceof Error ? err.message : "Please try again."
+      );
+    }
   }
 
   return (

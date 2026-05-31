@@ -1,6 +1,6 @@
 import { BottomSheetModal, BottomSheetTextInput } from "@gorhom/bottom-sheet";
 import { forwardRef, useState } from "react";
-import { View } from "react-native";
+import { Alert, View } from "react-native";
 import { MoneyInput } from "./MoneyInput";
 import { PricePreview } from "./PricePreview";
 import { SegmentedToggle } from "./SegmentedToggle";
@@ -37,31 +37,49 @@ export const BrokerSheet = forwardRef<BottomSheetModal, BrokerSheetProps>(
     const [ticker, setTicker] = useState("");
     const [quantity, setQuantity] = useState("");
 
+    const parsedQty = Number(quantity);
     const isValid =
       name.trim().length > 0 &&
       ticker.trim().length > 0 &&
-      Number(quantity) > 0;
+      Number.isFinite(parsedQty) &&
+      parsedQty > 0;
 
     async function handleSave() {
-      if (!isValid) return;
-      const finalInstrumentType = mode === "crypto" ? "CRYPTO" : instrumentType;
-      await useAssetsStore.getState().add({
-        type: "BROKER",
-        name: name.trim(),
-        currency: "USD",
-        metadata: {
-          instrumentType: finalInstrumentType,
-          ticker: ticker.trim().toUpperCase(),
-          quantity: Number(quantity),
-        },
-      });
-      // Reset form.
-      setName("");
-      setInstrumentType("STOCK");
-      setTicker("");
-      setQuantity("");
-      (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
-      onSaved?.();
+      if (!Number.isFinite(parsedQty) || parsedQty <= 0) {
+        Alert.alert("Invalid quantity", "Please enter a valid quantity.");
+        return;
+      }
+      if (name.trim().length === 0 || ticker.trim().length === 0) {
+        Alert.alert("Missing info", "Please enter a name and symbol.");
+        return;
+      }
+      try {
+        const finalInstrumentType =
+          mode === "crypto" ? "CRYPTO" : instrumentType;
+        await useAssetsStore.getState().add({
+          type: "BROKER",
+          name: name.trim(),
+          currency: "USD",
+          metadata: {
+            instrumentType: finalInstrumentType,
+            ticker: ticker.trim().toUpperCase(),
+            quantity: parsedQty,
+          },
+        });
+        // Reset form.
+        setName("");
+        setInstrumentType("STOCK");
+        setTicker("");
+        setQuantity("");
+        (ref as React.RefObject<BottomSheetModal>).current?.dismiss();
+        onSaved?.();
+      } catch (err) {
+        console.error("[BrokerSheet] save failed:", err);
+        Alert.alert(
+          "Couldn't save",
+          err instanceof Error ? err.message : "Please try again."
+        );
+      }
     }
 
     return (
