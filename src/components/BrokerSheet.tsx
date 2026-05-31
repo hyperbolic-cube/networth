@@ -37,6 +37,30 @@ export const BrokerSheet = forwardRef<BottomSheetModal, BrokerSheetProps>(
     const [ticker, setTicker] = useState("");
     const [quantity, setQuantity] = useState("");
 
+    // Typing-time setters wrapped so any sync throw in a downstream handler
+    // (string method, state shape, etc.) can't bubble into Hermes as a fatal.
+    const handleNameChange = (t: string) => {
+      try {
+        setName(t);
+      } catch (err) {
+        console.error("[BrokerSheet] name onChange threw:", err);
+      }
+    };
+    const handleTickerChange = (t: string) => {
+      try {
+        setTicker(typeof t === "string" ? t.toUpperCase() : "");
+      } catch (err) {
+        console.error("[BrokerSheet] ticker onChange threw:", err);
+      }
+    };
+    const handleQuantityChange = (t: string) => {
+      try {
+        setQuantity(t);
+      } catch (err) {
+        console.error("[BrokerSheet] quantity onChange threw:", err);
+      }
+    };
+
     const parsedQty = Number(quantity);
     const isValid =
       name.trim().length > 0 &&
@@ -95,7 +119,7 @@ export const BrokerSheet = forwardRef<BottomSheetModal, BrokerSheetProps>(
           <Caption>{mode === "crypto" ? "Label" : "Account name"}</Caption>
           <BottomSheetTextInput
             value={name}
-            onChangeText={setName}
+            onChangeText={handleNameChange}
             placeholder={
               mode === "crypto" ? "e.g. Bitcoin" : "e.g. Tesla Shares"
             }
@@ -128,7 +152,7 @@ export const BrokerSheet = forwardRef<BottomSheetModal, BrokerSheetProps>(
           <Caption>Symbol</Caption>
           <BottomSheetTextInput
             value={ticker}
-            onChangeText={(t) => setTicker(t.toUpperCase())}
+            onChangeText={handleTickerChange}
             placeholder={mode === "crypto" ? "e.g. BTC, ETH" : "e.g. TSLA, AAPL"}
             placeholderTextColor="#8E8E93"
             autoCapitalize="characters"
@@ -153,7 +177,7 @@ export const BrokerSheet = forwardRef<BottomSheetModal, BrokerSheetProps>(
           <Caption>Quantity</Caption>
           <MoneyInput
             value={quantity}
-            onChangeText={setQuantity}
+            onChangeText={handleQuantityChange}
             placeholder="0"
             keyboardType="decimal-pad"
           />

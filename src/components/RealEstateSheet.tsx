@@ -95,7 +95,13 @@ export const RealEstateSheet = forwardRef<
         <Caption>Property name</Caption>
         <BottomSheetTextInput
           value={name}
-          onChangeText={setName}
+          onChangeText={(t) => {
+            try {
+              setName(t);
+            } catch (err) {
+              console.error("[RealEstateSheet] name onChange threw:", err);
+            }
+          }}
           placeholder="e.g. Main Apartment"
           placeholderTextColor="#8E8E93"
           style={{

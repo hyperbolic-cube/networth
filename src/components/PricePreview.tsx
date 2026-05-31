@@ -42,52 +42,103 @@ export function PricePreview({ ticker, quantity, mode }: PricePreviewProps) {
   const [state, setState] = useState<PreviewState>({ kind: "idle" });
   // Incremented on each new fetch so stale callbacks can self-cancel.
   const reqIdRef = useRef(0);
+  // Tracks mount status so async callbacks don't setState on an unmounted tree.
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
-    const trimmed = ticker.trim();
-    const qty = parseFloat(quantity);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
-    if (!trimmed || !(qty > 0)) {
-      setState({ kind: "idle" });
-      return;
-    }
+  useEffect(() => {
+    // Wrap the entire effect body so any sync throw (parseFloat misuse,
+    // state-shape mismatch, etc.) cannot become an unhandled exception.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const trimmed = ticker.trim();
+      const qty = parseFloat(quantity);
 
-    setState({ kind: "loading" });
-    const myReqId = ++reqIdRef.current;
-
-    const timer = setTimeout(async () => {
-      let result: ApiResult<number>;
-      try {
-        result =
-          mode === "crypto"
-            ? await getCryptoPrice(trimmed)
-            : await getStockPrice(trimmed);
-      } catch {
-        if (reqIdRef.current !== myReqId) return;
-        setState({ kind: "offline" });
+      if (!trimmed || !Number.isFinite(qty) || !(qty > 0)) {
+        if (isMountedRef.current) setState({ kind: "idle" });
         return;
       }
 
-      if (reqIdRef.current !== myReqId) return;
+      if (isMountedRef.current) setState({ kind: "loading" });
+      const myReqId = ++reqIdRef.current;
 
-      if (result.status === "fresh" || result.status === "stale") {
-        setState({
-          kind: "success",
-          price: result.value,
-          total: result.value * qty,
-          status: result.status,
-          fetchedAt: result.fetchedAt,
-        });
-      } else {
-        // unavailable
-        setState(
-          result.reason === "not_found" ? { kind: "not_found" } : { kind: "offline" }
-        );
-      }
-    }, 400);
+      // setTimeout takes a sync callback that schedules an inner async runner.
+      // The inner runner's body is fully wrapped so its returned promise can
+      // never reject — Hermes treats unhandled rejections as fatal.
+      const run = async () => {
+        try {
+          let result: ApiResult<number>;
+          try {
+            result =
+              mode === "crypto"
+                ? await getCryptoPrice(trimmed)
+                : await getStockPrice(trimmed);
+          } catch (err) {
+            console.error("[PricePreview] price fetch threw:", err);
+            if (
+              isMountedRef.current &&
+              reqIdRef.current === myReqId
+            ) {
+              setState({ kind: "offline" });
+            }
+            return;
+          }
+
+          if (!isMountedRef.current || reqIdRef.current !== myReqId) return;
+
+          if (result.status === "fresh" || result.status === "stale") {
+            const price = result.value;
+            const total = price * qty;
+            // Defensive: if the cached value was corrupt and decoded to a
+            // non-number, fall back to offline rather than rendering NaN.
+            if (
+              typeof price !== "number" ||
+              !Number.isFinite(price) ||
+              !Number.isFinite(total)
+            ) {
+              setState({ kind: "offline" });
+              return;
+            }
+            setState({
+              kind: "success",
+              price,
+              total,
+              status: result.status,
+              fetchedAt: result.fetchedAt,
+            });
+          } else {
+            // unavailable
+            setState(
+              result.reason === "not_found"
+                ? { kind: "not_found" }
+                : { kind: "offline" }
+            );
+          }
+        } catch (err) {
+          console.error("[PricePreview] post-fetch handler threw:", err);
+          if (isMountedRef.current && reqIdRef.current === myReqId) {
+            setState({ kind: "offline" });
+          }
+        }
+      };
+
+      timer = setTimeout(() => {
+        // Fire-and-forget. `run` swallows its own errors so the dangling
+        // promise can never become unhandled.
+        void run();
+      }, 400);
+    } catch (err) {
+      console.error("[PricePreview] effect body threw:", err);
+    }
 
     return () => {
-      clearTimeout(timer);
+      if (timer !== undefined) clearTimeout(timer);
       // Cancel any in-flight fetch result from the previous effect run.
       reqIdRef.current++;
     };

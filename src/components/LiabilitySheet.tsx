@@ -127,7 +127,13 @@ export const LiabilitySheet = forwardRef<BottomSheetModal, LiabilitySheetProps>(
           <Caption>Name</Caption>
           <BottomSheetTextInput
             value={name}
-            onChangeText={setName}
+            onChangeText={(t) => {
+              try {
+                setName(t);
+              } catch (err) {
+                console.error("[LiabilitySheet] name onChange threw:", err);
+              }
+            }}
             placeholder={cfg.namePlaceholder}
             placeholderTextColor="#8E8E93"
             style={{

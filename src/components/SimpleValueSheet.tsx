@@ -122,7 +122,13 @@ export const SimpleValueSheet = forwardRef<
         <Caption>{cfg.nameLabel}</Caption>
         <BottomSheetTextInput
           value={name}
-          onChangeText={setName}
+          onChangeText={(t) => {
+            try {
+              setName(t);
+            } catch (err) {
+              console.error("[SimpleValueSheet] name onChange threw:", err);
+            }
+          }}
           placeholder={cfg.namePlaceholder}
           placeholderTextColor="#8E8E93"
           style={{

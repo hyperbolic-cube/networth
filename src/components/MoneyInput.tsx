@@ -30,8 +30,19 @@ export function MoneyInput({
     <BottomSheetTextInput
       value={value}
       onChangeText={(t) => {
-        tapLight();
-        onChangeText(t);
+        // Layer B safety net: any throw from the parent's setter or from
+        // haptics must not escape into an unhandled exception (Hermes will
+        // SIGABRT). tapLight is already .catch'd, but defend in depth.
+        try {
+          tapLight();
+        } catch (err) {
+          console.error("[MoneyInput] tapLight threw:", err);
+        }
+        try {
+          onChangeText(t);
+        } catch (err) {
+          console.error("[MoneyInput] onChangeText threw:", err);
+        }
       }}
       placeholder={placeholder}
       placeholderTextColor="#8E8E93"
