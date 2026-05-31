@@ -9,7 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Text, View } from "react-native";
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
 import type { CustomerInfo } from "react-native-purchases";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -27,6 +27,55 @@ import { useEntitlementStore } from "./src/store/entitlementStore";
 import { getMissedMonths, autoFillMissedSnapshots } from "./src/utils/autofill";
 import { initClock } from "./src/utils/clock";
 import type { RootStackParamList, TabParamList } from "./src/types/navigation";
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) =>
+      setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function InitErrorBanner({
+  errors,
+  onDismiss,
+}: {
+  errors: string[];
+  onDismiss: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <View style={{ backgroundColor: "#8B0000", paddingTop: 52, paddingHorizontal: 12, paddingBottom: 12 }}>
+      <TouchableOpacity onPress={() => setExpanded((e) => !e)} activeOpacity={0.8}>
+        <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 13, lineHeight: 18 }}>
+          {"⚠️"} {errors.length} init error{errors.length > 1 ? "s" : ""}:{" "}
+          {errors[0]}
+          {errors.length > 1 && !expanded ? "  (tap for more)" : ""}
+        </Text>
+        {expanded && (
+          <ScrollView style={{ maxHeight: 160, marginTop: 6 }}>
+            {errors.slice(1).map((e, i) => (
+              <Text key={i} style={{ color: "#FFB3B3", fontSize: 12, marginTop: 3 }}>
+                {"  • "}
+                {e}
+              </Text>
+            ))}
+          </ScrollView>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity onPress={onDismiss} style={{ marginTop: 8 }}>
+        <Text style={{ color: "#FFB3B3", fontSize: 12, textDecorationLine: "underline" }}>
+          Dismiss
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 async function initRevenueCat(): Promise<void> {
   const apiKey =
@@ -93,13 +142,34 @@ export default function App() {
     current: number;
     total: number;
   } | null>(null);
+  const [initErrors, setInitErrors] = useState<string[]>([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
     (async () => {
+      const errors: string[] = [];
+
+      // Step 1: database
       try {
         await initDatabase();
+      } catch (err) {
+        const msg = `initDatabase: ${errMsg(err)}`;
+        console.error("[App init]", msg);
+        errors.push(msg);
+      }
+
+      // Step 2: clock
+      try {
         await initClock();
-        await initRevenueCat();
+      } catch (err) {
+        const msg = `initClock: ${errMsg(err)}`;
+        console.error("[App init]", msg);
+        errors.push(msg);
+      }
+
+      // Step 3: RevenueCat (10 s timeout — configure + network handshake can hang)
+      try {
+        await withTimeout(initRevenueCat(), 10_000, "initRevenueCat");
         setupRCListener();
         if (__DEV__) {
           console.log(
@@ -108,8 +178,16 @@ export default function App() {
               "to include native module — Metro alone won't pick up RC native code."
           );
         }
+      } catch (err) {
+        const msg = `initRevenueCat: ${errMsg(err)}`;
+        console.error("[App init]", msg);
+        errors.push(msg);
+      }
 
-        const latest = await getLatestSnapshot();
+      // Step 4: autofill missed snapshots (DB-only, no network)
+      let latest: Awaited<ReturnType<typeof getLatestSnapshot>> | null = null;
+      try {
+        latest = await getLatestSnapshot();
         const missed = getMissedMonths(latest?.locked_at ?? null);
         if (missed.length > 0) {
           setAutoFillProgress({ current: 0, total: missed.length });
@@ -117,32 +195,50 @@ export default function App() {
             setAutoFillProgress({ current, total });
           });
         }
+      } catch (err) {
+        const msg = `autofill: ${errMsg(err)}`;
+        console.error("[App init]", msg);
+        errors.push(msg);
+      }
 
+      // Step 5: load assets into store
+      try {
         await useAssetsStore.getState().load();
-        await useEntitlementStore.getState().refresh();
-        const hasAssets = useAssetsStore.getState().items.length > 0;
+      } catch (err) {
+        const msg = `assetsStore.load: ${errMsg(err)}`;
+        console.error("[App init]", msg);
+        errors.push(msg);
+      }
 
-        // Which tab boots first: history if any snapshot exists, else Today.
-        const initialTab = latest !== null ? "Dashboard" : "Today";
-
-        // First run (no assets): seed the Grid above the Today tab so the user
-        // lands on onboarding and can goBack() into the tabs once they add an
-        // asset. Otherwise just open the chosen tab.
-        setInitialState(
-          hasAssets
-            ? { routes: [{ name: "Tabs", state: { routes: [{ name: initialTab }] } }] }
-            : {
-                routes: [
-                  { name: "Tabs", state: { routes: [{ name: "Today" }] } },
-                  { name: "Grid" },
-                ],
-              }
+      // Step 6: entitlement refresh (10 s timeout — Purchases.getCustomerInfo() is a network call)
+      try {
+        await withTimeout(
+          useEntitlementStore.getState().refresh(),
+          10_000,
+          "entitlement.refresh"
         );
       } catch (err) {
-        console.error("[App] init failed:", err);
-      } finally {
-        setReady(true);
+        const msg = `entitlement.refresh: ${errMsg(err)}`;
+        console.error("[App init]", msg);
+        errors.push(msg);
       }
+
+      // Compute initial route — null-safe: if DB failed, latest=null → Today tab (safe fallback)
+      const hasAssets = useAssetsStore.getState().items.length > 0;
+      const initialTab = latest !== null ? "Dashboard" : "Today";
+      setInitialState(
+        hasAssets
+          ? { routes: [{ name: "Tabs", state: { routes: [{ name: initialTab }] } }] }
+          : {
+              routes: [
+                { name: "Tabs", state: { routes: [{ name: "Today" }] } },
+                { name: "Grid" },
+              ],
+            }
+      );
+
+      if (errors.length > 0) setInitErrors(errors);
+      setReady(true);
     })();
   }, []);
 
@@ -150,6 +246,12 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <BottomSheetModalProvider>
+          {!bannerDismissed && initErrors.length > 0 && (
+            <InitErrorBanner
+              errors={initErrors}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          )}
           {ready ? (
             <NavigationContainer initialState={initialState}>
               <Stack.Navigator screenOptions={{ headerShown: false }}>
